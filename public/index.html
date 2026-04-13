@@ -24,13 +24,13 @@
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     
-    <!-- Prop Types (Wajib untuk Recharts) -->
+    <!-- Prop Types -->
     <script crossorigin src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
 
     <!-- Recharts -->
     <script crossorigin src="https://unpkg.com/recharts@2.8.0/umd/Recharts.js"></script>
     
-    <!-- Babel (untuk JSX) -->
+    <!-- Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
     <!-- Tailwind CSS -->
@@ -44,21 +44,17 @@
                         sans: ['Inter', 'sans-serif'],
                     },
                     colors: {
-                        geminiBgDark: '#131314',
-                        geminiCardDark: '#1e1f20',
-                        geminiBorderDark: '#444746',
+                        // Palet Warna Profesional (Tanpa Border)
+                        geminiBgDark: '#0e0e10',
+                        geminiCardDark: '#1c1c1e',
                         geminiTextDark: '#e3e3e3',
-                        geminiTextMutedDark: '#c4c7c5',
-                        geminiPrimaryDark: '#a8c7fa',
+                        geminiTextMutedDark: '#bdc1c6',
                         
-                        geminiBgLight: '#f0f4f9',
+                        geminiBgLight: '#f8fafd',
                         geminiCardLight: '#ffffff',
-                        geminiBorderLight: '#c7c7c7',
                         geminiTextLight: '#1f1f1f',
-                        geminiTextMutedLight: '#444746',
-                        geminiPrimaryLight: '#0b57d0',
+                        geminiTextMutedLight: '#5f6368',
 
-                        // Warna Perusahaan
                         corpBlue: '#00529B',
                         corpYellow: '#F9AB00',
                     }
@@ -67,52 +63,35 @@
         }
     </script>
 
-    <!-- PapaParse -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         
-        .custom-scrollbar {
-            scrollbar-width: thin;
-            scrollbar-color: #c7c7c7 transparent; 
-        }
-        .dark .custom-scrollbar {
-            scrollbar-color: #444746 transparent;
-        }
-        
-        .custom-scrollbar::-webkit-scrollbar {
-            height: 6px;
-            width: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: transparent;
-            margin: 0 10px;
-        }
+        .custom-scrollbar::-webkit-scrollbar { height: 6px; width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-            background-color: #c7c7c7;
-            border-radius: 10px;
+            background-color: #d1d5db;
+            border-radius: 4px;
         }
-        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
-            background-color: #444746;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background-color: #a0a0a0;
-        }
-        .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background-color: #5f6368;
-        }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #3c4043; }
 
         html { scroll-behavior: smooth; }
         .animate-fade-in { animation: fadeIn 0.4s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+        
+        select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.75rem center;
+            background-size: 1rem;
+        }
     </style>
 </head>
-<body class="bg-geminiBgLight text-geminiTextLight dark:bg-geminiBgDark dark:text-geminiTextDark transition-colors duration-300 antialiased selection:bg-geminiPrimaryLight/30 dark:selection:bg-geminiPrimaryDark/30">
+<body class="bg-geminiBgLight text-geminiTextLight dark:bg-geminiBgDark dark:text-geminiTextDark transition-colors duration-300 antialiased selection:bg-corpBlue/20">
     <div id="root"></div>
 
     <script type="text/babel">
@@ -173,17 +152,13 @@
             const parseNumber = (val) => {
                 if (val === undefined || val === null || val === '-' || val === '') return 0;
                 if (typeof val === 'number') return val;
-                // Menggunakan titik sebagai pemisah ribuan dan koma sebagai desimal (Standard Indonesia)
                 const cleaned = val.toString().trim().replace(/\./g, '').replace(/,/g, '.');
                 const num = parseFloat(cleaned);
                 return isNaN(num) ? 0 : num;
             };
 
             const formatNumber = (num) => {
-                return new Intl.NumberFormat('id-ID', { 
-                    minimumFractionDigits: 2, 
-                    maximumFractionDigits: 2 
-                }).format(num);
+                return new Intl.NumberFormat('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
             };
 
             const formatYAxis = (value) => {
@@ -200,18 +175,11 @@
             const [selectedKabupaten, setSelectedKabupaten] = useState('All');
             const [selectedProduk, setSelectedProduk] = useState('All');
 
-            useEffect(() => {
-                setSelectedKabupaten('All');
-            }, [selectedProvinsi]);
-
-            useEffect(() => {
-                setSelectedProvinsi('All');
-                setSelectedKabupaten('All');
-                setSelectedProduk('All');
-            }, [activeTab]);
+            useEffect(() => { setSelectedKabupaten('All'); }, [selectedProvinsi]);
+            useEffect(() => { setSelectedProvinsi('All'); setSelectedKabupaten('All'); setSelectedProduk('All'); }, [activeTab]);
 
             const filterOptions = useMemo(() => {
-                if (!currentData || currentData.length === 0) return { tahun: [], provinsi: [], produk: [] };
+                if (!currentData.length) return { tahun: [], provinsi: [], produk: [] };
                 const tahunSet = new Set(), provinsiSet = new Set(), produkSet = new Set();
                 currentData.forEach(row => {
                     if (row.Tahun) tahunSet.add(row.Tahun);
@@ -249,10 +217,10 @@
             }, [currentData, selectedTahun, selectedProvinsi, selectedKabupaten, selectedProduk]);
 
             const getTimelineKey = (row) => {
-                const prov = (row.Provinsi || 'UNKNOWN').toString().trim().toUpperCase();
-                const kab = (row.Kabupaten || 'UNKNOWN').toString().trim().toUpperCase();
-                const dist = (row['Kode Distributor'] || row['Nama Distributor'] || 'UNKNOWN').toString().trim().toUpperCase();
-                const prod = (row.Produk || 'UNKNOWN').toString().trim().toUpperCase();
+                const prov = (row.Provinsi || 'U').toString().trim().toUpperCase();
+                const kab = (row.Kabupaten || 'U').toString().trim().toUpperCase();
+                const dist = (row['Kode Distributor'] || row['Nama Distributor'] || 'U').toString().trim().toUpperCase();
+                const prod = (row.Produk || 'U').toString().trim().toUpperCase();
                 return `${prov}_${kab}_${dist}_${prod}`;
             };
 
@@ -272,12 +240,12 @@
                         timeline[tKey].stokAkhirByBulan[bulan] = (timeline[tKey].stokAkhirByBulan[bulan] || 0) + parseNumber(row['Stok Akhir']);
                     }
                 });
-                let stokAwal = 0, stokAkhir = 0;
+                let sAwal = 0, sAkhir = 0;
                 Object.values(timeline).forEach(t => {
-                    stokAwal += t.stokAwalByBulan[t.minBulan] || 0;
-                    stokAkhir += t.stokAkhirByBulan[t.maxBulan] || 0;
+                    sAwal += t.stokAwalByBulan[t.minBulan] || 0;
+                    sAkhir += t.stokAkhirByBulan[t.maxBulan] || 0;
                 });
-                return { totalStokAwal: stokAwal, totalPenebusan: penebusan, totalPenyaluran: penyaluran, totalStok: stokAkhir };
+                return { totalStokAwal: sAwal, totalPenebusan: penebusan, totalPenyaluran: penyaluran, totalStok: sAkhir };
             }, [filteredData]);
 
             const chartDataBulanan = useMemo(() => {
@@ -341,62 +309,44 @@
                 return { labelHeader, data: final.sort((a, b) => b.Penyaluran - a.Penyaluran) };
             }, [filteredData, selectedProvinsi, selectedKabupaten]);
 
-            const maxPenyaluranTable = useMemo(() => {
-                return tableData.data.length ? Math.max(...tableData.data.map(d => d.Penyaluran)) : 0;
-            }, [tableData.data]);
+            const maxPenyaluranTable = useMemo(() => tableData.data.length ? Math.max(...tableData.data.map(d => d.Penyaluran)) : 0, [tableData.data]);
 
             const LoadingView = () => (
-                <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
-                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-corpBlue mb-6"></div>
-                    <h2 className="text-xl font-medium">Sabar Yee...</h2>
-                    <p className="text-geminiTextMutedLight dark:text-geminiTextMutedDark mt-2 text-center text-sm max-w-sm">Iwak Sepat Iwak Gabus, Makin Cepat Makin Bagus!</p>
-                </div>
-            );
-
-            const ErrorView = () => (
-                <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
-                    <div className="bg-red-100 dark:bg-red-900/30 p-4 rounded-full mb-4">
-                        <i data-lucide="alert-octagon" className="w-10 h-10 text-red-600 dark:text-red-400"></i>
-                    </div>
-                    <h2 className="text-xl font-medium">Akses Data Gagal</h2>
-                    <p className="text-red-600 mt-2 text-center text-sm">{error}</p>
+                <div className="flex flex-col items-center justify-center min-h-[70vh] px-4">
+                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-corpBlue mb-6"></div>
+                    <p className="text-geminiTextMutedLight dark:text-geminiTextMutedDark text-sm font-medium">Iwak Sepat Iwak Gabus, Makin Cepat Makin Bagus!</p>
                 </div>
             );
 
             return (
-                <div className="min-h-screen flex flex-col relative pb-6 sm:pb-10">
-                    {/* Header */}
-                    <header className="sticky top-0 z-50 bg-geminiBgLight/80 dark:bg-geminiBgDark/80 backdrop-blur-lg border-b border-geminiBorderLight dark:border-geminiBorderDark transition-colors duration-300">
-                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                            <div className="flex justify-between items-center h-14 sm:h-16">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-corpBlue flex items-center justify-center text-white">
-                                        <i data-lucide="sparkles" className="w-4 h-4"></i>
-                                    </div>
-                                    <h1 className="text-base sm:text-xl font-semibold tracking-tight">Dashboard F5/F6 PSP</h1>
+                <div className="min-h-screen flex flex-col pb-10">
+                    <header className="sticky top-0 z-50 bg-geminiBgLight/90 dark:bg-geminiBgDark/90 backdrop-blur-xl transition-colors">
+                        <div className="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center">
+                            <div className="flex items-center gap-4">
+                                <div className="w-8 h-8 rounded-lg bg-corpBlue flex items-center justify-center text-white shadow-md">
+                                    <i data-lucide="sparkles" className="w-4 h-4"></i>
                                 </div>
-                                <button 
-                                    onClick={() => setIsDarkMode(!isDarkMode)}
-                                    className="p-2 sm:p-2.5 rounded-full bg-geminiCardLight dark:bg-geminiCardDark border border-geminiBorderLight dark:border-geminiBorderDark transition-all"
-                                >
-                                    <i data-lucide={isDarkMode ? "sun" : "moon"} className="w-4 h-4 sm:w-5 sm:h-5"></i>
-                                </button>
+                                <h1 className="text-lg sm:text-xl font-bold tracking-tight">Dashboard F5/F6 PSP</h1>
                             </div>
+                            <button 
+                                onClick={() => setIsDarkMode(!isDarkMode)}
+                                className="w-9 h-9 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800 transition-all hover:bg-gray-200 dark:hover:bg-gray-700"
+                            >
+                                <i data-lucide={isDarkMode ? "sun" : "moon"} className="w-4 h-4"></i>
+                            </button>
                         </div>
                     </header>
 
-                    <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 mt-6 sm:mt-8">
-                        
-                        {/* Tab Navigation */}
-                        <div className="flex items-center gap-2 sm:gap-3 mb-6 sm:mb-8 overflow-x-auto hide-scrollbar pb-2">
+                    <main className="flex-1 max-w-7xl w-full mx-auto px-6 mt-4">
+                        <div className="flex items-center gap-2 mb-6 overflow-x-auto hide-scrollbar">
                             {['F5', 'F6'].map((tab) => (
                                 <button
                                     key={tab}
                                     onClick={() => setActiveTab(tab)}
-                                    className={`px-5 py-2 sm:px-6 sm:py-2.5 rounded-full font-medium text-sm transition-all whitespace-nowrap border ${
+                                    className={`px-6 py-2 rounded-lg font-bold text-xs uppercase tracking-widest transition-all ${
                                         activeTab === tab 
-                                        ? 'bg-corpBlue text-white border-transparent shadow-sm' 
-                                        : 'bg-transparent text-geminiTextMutedLight dark:text-geminiTextMutedDark border-geminiBorderLight dark:border-geminiBorderDark hover:bg-geminiCardLight dark:hover:bg-geminiCardDark'
+                                        ? 'bg-corpBlue text-white shadow-lg shadow-corpBlue/20' 
+                                        : 'bg-white dark:bg-geminiCardDark text-geminiTextMutedLight dark:text-geminiTextMutedDark hover:bg-gray-50'
                                     }`}
                                 >
                                     Lampiran {tab}
@@ -404,180 +354,164 @@
                             ))}
                         </div>
 
-                        {isLoading ? (
-                            <LoadingView />
-                        ) : error ? (
-                            <ErrorView />
-                        ) : (
-                            <div className="space-y-6 sm:space-y-8 animate-fade-in">
+                        {isLoading ? <LoadingView /> : error ? <ErrorView /> : (
+                            <div className="space-y-6 animate-fade-in">
                                 
-                                {/* Filter Section */}
-                                <div className="bg-geminiCardLight dark:bg-geminiCardDark p-3 sm:p-5 rounded-2xl sm:rounded-3xl border border-geminiBorderLight dark:border-geminiBorderDark grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 shadow-sm">
+                                <div className="bg-white dark:bg-geminiCardDark p-5 rounded-xl shadow-sm grid grid-cols-2 lg:grid-cols-4 gap-4">
                                     {[
                                         { label: 'Tahun', value: selectedTahun, setter: setSelectedTahun, options: filterOptions.tahun },
                                         { label: 'Provinsi', value: selectedProvinsi, setter: setSelectedProvinsi, options: ['All', ...filterOptions.provinsi] },
                                         { label: 'Kabupaten', value: selectedKabupaten, setter: setSelectedKabupaten, options: ['All', ...kabupatenOptions] },
                                         { label: 'Produk', value: selectedProduk, setter: setSelectedProduk, options: ['All', ...filterOptions.produk] }
                                     ].map((f, i) => (
-                                        <div key={i} className="flex flex-col overflow-hidden">
-                                            <label className="text-[10px] sm:text-xs font-medium text-geminiTextMutedLight mb-1 sm:mb-1.5 ml-1 truncate">{f.label}</label>
+                                        <div key={i} className="flex flex-col">
+                                            <label className="text-[10px] font-bold uppercase tracking-wider text-geminiTextMutedLight dark:text-geminiTextDark/90 mb-2 ml-0.5">
+                                                {f.label}
+                                            </label>
                                             <select 
                                                 value={f.value} 
                                                 onChange={(e) => f.setter(e.target.value)}
-                                                className="w-full bg-geminiBgLight dark:bg-[#131314] border border-geminiBorderLight dark:border-[#444746] text-geminiTextLight dark:text-geminiTextDark rounded-lg sm:rounded-xl px-2 sm:px-3.5 py-1.5 sm:py-2.5 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-corpBlue/30 transition-all truncate outline-none cursor-pointer"
+                                                className="w-full bg-gray-50 dark:bg-geminiBgDark rounded-lg px-3 py-2 text-sm font-semibold outline-none focus:ring-2 focus:ring-corpBlue/30 transition-all cursor-pointer border-none"
                                             >
                                                 {f.options.map((opt) => (
-                                                    <option key={opt} value={opt}>{opt === 'All' ? `Semua ${f.label}` : opt}</option>
+                                                    <option key={opt} value={opt}>{opt === 'All' ? `Semua` : opt}</option>
                                                 ))}
                                             </select>
                                         </div>
                                     ))}
                                 </div>
 
-                                {/* KPI Cards */}
-                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                                     {[
-                                        { label: 'Stok Awal', value: dashboardStats.totalStokAwal, icon: 'archive', color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-900/10' },
-                                        { label: 'Penebusan', value: dashboardStats.totalPenebusan, icon: 'shopping-cart', color: 'text-corpBlue dark:text-geminiPrimaryDark', bg: 'bg-blue-50 dark:bg-blue-900/10' },
-                                        { label: 'Penyaluran', value: dashboardStats.totalPenyaluran, icon: 'truck', color: 'text-corpYellow dark:text-corpYellow', bg: 'bg-amber-50 dark:bg-amber-900/10' },
-                                        { label: 'Stok Akhir', value: dashboardStats.totalStok, icon: 'package', color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-900/10' }
+                                        { label: 'Stok Awal', value: dashboardStats.totalStokAwal, icon: 'archive', color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-500/10' },
+                                        { label: 'Penebusan', value: dashboardStats.totalPenebusan, icon: 'shopping-cart', color: 'text-corpBlue dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-500/10' },
+                                        { label: 'Penyaluran', value: dashboardStats.totalPenyaluran, icon: 'truck', color: 'text-corpYellow dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10' },
+                                        { label: 'Stok Akhir', value: dashboardStats.totalStok, icon: 'package', color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-500/10' }
                                     ].map((stat, idx) => (
-                                        <div key={idx} className="bg-geminiCardLight dark:bg-geminiCardDark p-4 sm:p-6 rounded-3xl border border-geminiBorderLight dark:border-geminiBorderDark flex flex-col sm:flex-row items-start sm:items-center gap-4 shadow-sm">
-                                            <div className={`p-3 rounded-2xl ${stat.bg} ${stat.color}`}>
-                                                <i data-lucide={stat.icon} className="w-6 h-6"></i>
+                                        <div key={idx} className="bg-white dark:bg-geminiCardDark p-5 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+                                            <div className="flex items-center justify-between mb-4">
+                                                <div className={`w-10 h-10 rounded-lg ${stat.bg} ${stat.color} flex items-center justify-center`}>
+                                                    <i data-lucide={stat.icon} className="w-5 h-5"></i>
+                                                </div>
+                                                <span className="text-[10px] font-bold text-geminiTextMutedLight uppercase tracking-tight">Actual</span>
                                             </div>
-                                            <div>
-                                                <p className="text-[11px] sm:text-sm font-medium text-geminiTextMutedLight leading-tight">{stat.label}</p>
-                                                <h3 className="text-base sm:text-2xl font-bold">
-                                                    {formatNumber(stat.value)} 
-                                                    <span className="text-[10px] sm:text-sm font-normal text-geminiTextMutedLight ml-1">Ton</span>
-                                                </h3>
-                                            </div>
+                                            <p className="text-[10px] font-bold text-geminiTextMutedLight dark:text-geminiTextMutedDark uppercase tracking-widest mb-1">{stat.label}</p>
+                                            <h3 className="text-xl sm:text-2xl font-black leading-tight truncate">
+                                                {formatNumber(stat.value)}
+                                            </h3>
+                                            <span className="text-[10px] font-bold text-geminiTextMutedLight mt-2 block opacity-60">Metric Ton (MT)</span>
                                         </div>
                                     ))}
                                 </div>
 
-                                {/* Charts Area */}
-                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-6 items-stretch">
-                                    <div className="lg:col-span-2 bg-geminiCardLight dark:bg-geminiCardDark p-5 sm:p-6 rounded-2xl sm:rounded-3xl border border-geminiBorderLight dark:border-geminiBorderDark shadow-sm flex flex-col">
-                                        <div className="flex justify-between items-center mb-6">
-                                            <h3 className="text-base sm:text-lg font-semibold">Performa Bulanan</h3>
-                                            <span className="text-xs font-medium px-2 py-1 bg-geminiBgLight dark:bg-[#131314] rounded-md border border-geminiBorderLight dark:border-[#444746]">Ton</span>
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+                                    <div className="lg:col-span-2 bg-white dark:bg-geminiCardDark p-6 rounded-xl shadow-sm flex flex-col">
+                                        <div className="flex justify-between items-start mb-8">
+                                            <div>
+                                                <h3 className="text-sm font-bold uppercase tracking-widest mb-1">Tren Distribusi</h3>
+                                                <p className="text-[10px] text-geminiTextMutedLight font-semibold uppercase tracking-wider">Perbandingan Bulanan</p>
+                                            </div>
+                                            {/* Indikator Legenda Kustom di Header */}
+                                            <div className="flex items-center gap-4 bg-gray-50 dark:bg-geminiBgDark px-3 py-1.5 rounded-lg">
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="w-2.5 h-2.5 rounded-sm bg-corpBlue dark:bg-blue-400"></span>
+                                                    <span className="text-[10px] font-bold uppercase text-geminiTextMutedLight tracking-tighter">Penebusan</span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="w-3 h-0.5 bg-corpYellow rounded-full"></span>
+                                                    <span className="text-[10px] font-bold uppercase text-geminiTextMutedLight tracking-tighter">Penyaluran</span>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div className="flex-1 w-full min-h-[340px] text-xs sm:text-sm">
+                                        <div className="flex-1 w-full min-h-[320px] text-xs">
                                             {chartDataBulanan.length > 0 ? (
                                                 <ResponsiveContainer width="100%" height="100%">
                                                     <ComposedChart data={chartDataBulanan} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
-                                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? '#333537' : '#e0e0e0'} />
-                                                        <XAxis dataKey="name" tick={{fill: isDarkMode ? '#c4c7c5' : '#444746'}} axisLine={false} tickLine={false} dy={10} />
-                                                        <YAxis tick={{fill: isDarkMode ? '#c4c7c5' : '#444746'}} axisLine={false} tickLine={false} tickFormatter={formatYAxis} width={65} />
+                                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? '#2c2e30' : '#f0f0f0'} />
+                                                        <XAxis dataKey="name" tick={{fill: isDarkMode ? '#bdc1c6' : '#5f6368', fontSize: 10, fontWeight: 700}} axisLine={false} tickLine={false} dy={10} />
+                                                        <YAxis tick={{fill: isDarkMode ? '#bdc1c6' : '#5f6368', fontSize: 10}} axisLine={false} tickLine={false} tickFormatter={formatYAxis} width={65} />
                                                         <Tooltip 
-                                                            contentStyle={{ backgroundColor: isDarkMode ? '#1e1f20' : '#ffffff', borderColor: isDarkMode ? '#444746' : '#c7c7c7', color: isDarkMode ? '#e3e3e3' : '#1f1f1f', borderRadius: '12px', padding: '12px' }}
-                                                            formatter={(value) => [`${formatNumber(value)} Ton`]}
-                                                            cursor={{fill: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)'}}
+                                                            contentStyle={{ backgroundColor: isDarkMode ? '#1e1f20' : '#ffffff', border: 'none', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                                            itemStyle={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}
+                                                            formatter={(value, name) => [`${formatNumber(value)} Ton`, name]}
+                                                            cursor={{fill: isDarkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'}}
                                                         />
-                                                        <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="circle" />
-                                                        <Bar dataKey="Penebusan" name="Penebusan" fill={isDarkMode ? '#a8c7fa' : '#0b57d0'} radius={[4, 4, 0, 0]} maxBarSize={40} />
-                                                        {/* Menggunakan type="natural" untuk garis yang lebih halus/curvy */}
-                                                        <Line type="natural" dataKey="Penyaluran" name="Penyaluran" stroke="#F9AB00" strokeWidth={3} dot={{ r: 4, fill: "#F9AB00", strokeWidth: 2 }} activeDot={{ r: 6 }} connectNulls={true} />
+                                                        {/* Legenda default diperjelas */}
+                                                        <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', paddingTop: '20px', letterSpacing: '0.05em' }} />
+                                                        <Bar dataKey="Penebusan" name="Penebusan" fill={isDarkMode ? '#4a8df8' : '#0b57d0'} radius={[4, 4, 0, 0]} maxBarSize={24} />
+                                                        <Line type="natural" dataKey="Penyaluran" name="Penyaluran" stroke="#F9AB00" strokeWidth={3} dot={{ r: 4, fill: "#F9AB00", strokeWidth: 2 }} activeDot={{ r: 6 }} />
                                                     </ComposedChart>
                                                 </ResponsiveContainer>
-                                            ) : (
-                                                <div className="h-full flex items-center justify-center opacity-50"><p>Data Kosong</p></div>
-                                            )}
+                                            ) : <div className="h-full flex items-center justify-center opacity-30 text-xs font-bold uppercase">Data Kosong</div>}
                                         </div>
                                     </div>
 
-                                    {/* Top 5 Distributor */}
-                                    <div className="bg-geminiCardLight dark:bg-geminiCardDark p-5 sm:p-6 rounded-2xl sm:rounded-3xl border border-geminiBorderLight dark:border-geminiBorderDark shadow-sm flex flex-col">
-                                        <h3 className="text-base sm:text-lg font-semibold mb-6">Top 5 Penyaluran</h3>
-                                        <div className="flex-1 flex flex-col overflow-hidden">
-                                            {topDistributor.length > 0 ? (
-                                                <ul className="flex flex-col gap-3 h-full overflow-hidden">
-                                                    {topDistributor.map((item, index) => (
-                                                        <li key={index} className="flex-1 flex items-center justify-between p-3 bg-geminiBgLight dark:bg-[#131314] border border-transparent dark:border-[#2a2b2c] rounded-2xl hover:border-corpYellow/30 transition-all overflow-hidden">
-                                                            <div className="flex items-center overflow-hidden flex-1 pr-2">
-                                                                <div className={`flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm mr-2 sm:mr-3 ${index === 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>
-                                                                    {index + 1}
-                                                                </div>
-                                                                <span className="font-medium text-xs sm:text-sm truncate">{item.name}</span>
-                                                            </div>
-                                                            <div className="text-right flex-shrink-0">
-                                                                <span className="block font-semibold text-xs sm:text-sm">{formatNumber(item.value)}</span>
-                                                                <span className="text-[10px] text-geminiTextMutedLight">Ton</span>
-                                                            </div>
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            ) : (
-                                                <div className="h-full flex items-center justify-center opacity-50 text-sm"><p>Data distributor kosong</p></div>
-                                            )}
-                                        </div>
+                                    <div className="bg-white dark:bg-geminiCardDark p-6 rounded-xl shadow-sm flex flex-col">
+                                        <h3 className="text-sm font-bold uppercase tracking-widest mb-8">Top 5 Performa</h3>
+                                        <ul className="flex-1 flex flex-col gap-3">
+                                            {topDistributor.map((item, index) => (
+                                                <li key={index} className="flex-1 flex items-center justify-between p-4 bg-gray-50 dark:bg-geminiBgDark rounded-lg transition-all hover:bg-corpBlue/5 group">
+                                                    <div className="flex items-center overflow-hidden flex-1 pr-3">
+                                                        <div className={`w-6 h-6 rounded flex items-center justify-center font-black text-[10px] mr-4 ${index === 0 ? 'bg-corpYellow text-white' : 'bg-white dark:bg-gray-800 text-geminiTextMutedLight'}`}>
+                                                            {index + 1}
+                                                        </div>
+                                                        <span className="font-bold text-[11px] truncate uppercase tracking-tight">{item.name}</span>
+                                                    </div>
+                                                    <div className="text-right flex-shrink-0">
+                                                        <span className="block font-black text-xs text-corpBlue dark:text-blue-400">{formatNumber(item.value)}</span>
+                                                    </div>
+                                                </li>
+                                            ))}
+                                        </ul>
                                     </div>
                                 </div>
 
-                                {/* Dynamic Table */}
-                                <div className="bg-geminiCardLight dark:bg-geminiCardDark rounded-2xl sm:rounded-3xl border border-geminiBorderLight dark:border-geminiBorderDark shadow-sm overflow-hidden">
-                                    <div className="p-5 sm:p-6 border-b border-geminiBorderLight dark:border-geminiBorderDark">
-                                        <h3 className="text-base sm:text-lg font-semibold">Rincian Per {tableData.labelHeader}</h3>
-                                        <p className="text-sm text-geminiTextMutedLight dark:text-geminiTextMutedDark mt-1">Performa distribusi berdasarkan volume penyaluran aktual.</p>
+                                <div className="bg-white dark:bg-geminiCardDark rounded-xl shadow-sm overflow-hidden">
+                                    <div className="p-6">
+                                        <h3 className="text-sm font-bold uppercase tracking-widest">Rincian Data {tableData.labelHeader}</h3>
+                                        <p className="text-[10px] text-geminiTextMutedLight font-bold uppercase mt-1 opacity-60 tracking-wider">Laporan Akumulasi Tahunan</p>
                                     </div>
-                                    <div className="overflow-x-auto pb-3 custom-scrollbar">
-                                        <table className="w-full min-w-[800px] text-left border-collapse">
+                                    <div className="overflow-x-auto pb-2 custom-scrollbar">
+                                        <table className="w-full min-w-[800px] text-left">
                                             <thead>
-                                                <tr className="bg-slate-50 dark:bg-[#131314]/80 text-[10px] sm:text-xs font-semibold tracking-wider text-geminiTextMutedLight dark:text-geminiTextMutedDark uppercase border-b border-geminiBorderLight dark:border-geminiBorderDark">
-                                                    <th className="py-4 px-4 sm:px-6 text-center w-16">Rank</th>
-                                                    <th className="py-4 px-4 sm:px-6">{tableData.labelHeader}</th>
-                                                    <th className="py-4 px-4 sm:px-6 text-right">Stok Awal</th>
-                                                    <th className="py-4 px-4 sm:px-6 text-right">Penebusan</th>
-                                                    <th className="py-4 px-4 sm:px-6 text-right">Penyaluran</th>
-                                                    <th className="py-4 px-4 sm:px-6 text-right">Stok Akhir</th>
+                                                <tr className="bg-gray-50 dark:bg-geminiBgDark/50 text-[10px] font-bold uppercase tracking-widest text-geminiTextMutedLight">
+                                                    <th className="py-4 px-6 text-center w-20">No</th>
+                                                    <th className="py-4 px-4">{tableData.labelHeader}</th>
+                                                    <th className="py-4 px-4 text-right">Stok Awal</th>
+                                                    <th className="py-4 px-4 text-right">Penebusan</th>
+                                                    <th className="py-4 px-4 text-right">Penyaluran</th>
+                                                    <th className="py-4 px-6 text-right">Stok Akhir</th>
                                                 </tr>
                                             </thead>
-                                            <tbody className="text-sm divide-y divide-geminiBorderLight/60 dark:divide-geminiBorderDark/60">
-                                                {tableData.data.length > 0 ? (
-                                                    tableData.data.map((row, index) => {
-                                                        const barWidth = maxPenyaluranTable > 0 ? (row.Penyaluran / maxPenyaluranTable) * 100 : 0;
-                                                        let badgeClass = "bg-slate-100 text-slate-500 dark:bg-[#2a2b2c] dark:text-slate-400";
-                                                        if (index === 0) badgeClass = "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400 ring-1 ring-yellow-400/30";
-                                                        else if (index === 1) badgeClass = "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300 ring-1 ring-slate-400/30";
-                                                        else if (index === 2) badgeClass = "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-400 ring-1 ring-orange-400/30";
-
-                                                        return (
-                                                            <tr key={index} className="group hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors duration-200">
-                                                                <td className="py-3 px-4 sm:px-6">
-                                                                    <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center font-bold text-xs mx-auto transition-colors ${badgeClass}`}>
-                                                                        {index + 1}
-                                                                    </div>
-                                                                </td>
-                                                                <td className="py-3 px-4 sm:px-6 font-medium text-geminiTextLight dark:text-geminiTextDark">{row.name}</td>
-                                                                <td className="py-3 px-4 sm:px-6 text-right text-geminiTextMutedLight dark:text-geminiTextMutedDark">{formatNumber(row.StokAwal)}</td>
-                                                                <td className="py-3 px-4 sm:px-6 text-right text-geminiTextMutedLight dark:text-geminiTextMutedDark">{formatNumber(row.Penebusan)}</td>
-                                                                <td className="py-3 px-4 sm:px-6 text-right relative min-w-[150px]">
-                                                                    <div className="absolute inset-y-1.5 right-4 sm:right-6 bg-amber-100 dark:bg-amber-900/30 rounded-md transition-all duration-700" style={{ width: `calc(${barWidth}% - 1.5rem)`, zIndex: 0 }}></div>
-                                                                    <span className="relative z-10 text-corpYellow font-bold">{formatNumber(row.Penyaluran)}</span>
-                                                                </td>
-                                                                <td className="py-3 px-4 sm:px-6 text-right text-geminiTextMutedLight dark:text-geminiTextMutedDark font-medium">{formatNumber(row.StokAkhir)}</td>
-                                                            </tr>
-                                                        );
-                                                    })
-                                                ) : (
-                                                    <tr>
-                                                        <td colSpan="6" className="py-12 text-center text-geminiTextMutedLight dark:text-geminiTextMutedDark text-sm">
-                                                            Data tidak ditemukan.
-                                                        </td>
-                                                    </tr>
-                                                )}
+                                            <tbody className="text-xs divide-y divide-gray-100 dark:divide-gray-800">
+                                                {tableData.data.map((row, index) => {
+                                                    const barWidth = maxPenyaluranTable > 0 ? (row.Penyaluran / maxPenyaluranTable) * 100 : 0;
+                                                    return (
+                                                        <tr key={index} className="hover:bg-gray-50 dark:hover:bg-geminiBgDark/20 transition-colors">
+                                                            <td className="py-4 px-6">
+                                                                <div className={`w-6 h-6 rounded flex items-center justify-center font-bold text-[10px] mx-auto ${index < 3 ? 'bg-corpBlue/10 text-corpBlue dark:bg-blue-400/20 dark:text-blue-400' : 'text-geminiTextMutedLight'}`}>
+                                                                    {index + 1}
+                                                                </div>
+                                                            </td>
+                                                            <td className="py-4 px-4 font-bold text-geminiTextLight dark:text-geminiTextDark uppercase text-[10px] tracking-tight">{row.name}</td>
+                                                            <td className="py-4 px-4 text-right font-medium text-geminiTextMutedLight opacity-80">{formatNumber(row.StokAwal)}</td>
+                                                            <td className="py-4 px-4 text-right font-medium text-geminiTextMutedLight opacity-80">{formatNumber(row.Penebusan)}</td>
+                                                            <td className="py-4 px-4 text-right relative min-w-[160px]">
+                                                                <div className="absolute inset-y-3 right-4 bg-corpYellow/10 rounded" style={{ width: `calc(${barWidth}% - 1rem)` }}></div>
+                                                                <span className="relative z-10 text-corpYellow font-black">{formatNumber(row.Penyaluran)}</span>
+                                                            </td>
+                                                            <td className="py-4 px-6 text-right font-bold">{formatNumber(row.StokAkhir)}</td>
+                                                        </tr>
+                                                    );
+                                                })}
                                             </tbody>
                                         </table>
                                     </div>
                                 </div>
-
                             </div>
                         )}
                     </main>
 
-                    {/* Footer */}
                     <footer className="text-center mt-12 sm:mt-16 mb-4 text-[10px] text-geminiTextMutedLight dark:text-geminiTextMutedDark w-full px-4 opacity-70">
                         <p>Copyright &copy; 2026 - Adm Pemasaran & Penjualan</p>
                         <p className="mt-1">Design by 00.0034</p>
