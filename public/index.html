@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="id" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dashboard F5/F6 PSP</title>
+    
+    <!-- Google Fonts (Inter untuk kesan modern dan clean seperti UI Google) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- React & ReactDOM (v18) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel (untuk JSX) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        // Skema Warna Ala Gemini
+                        geminiBgDark: '#131314',
+                        geminiCardDark: '#1e1f20',
+                        geminiBorderDark: '#444746',
+                        geminiTextDark: '#e3e3e3',
+                        geminiTextMutedDark: '#c4c7c5',
+                        geminiPrimaryDark: '#a8c7fa', // Biru muda
+                        
+                        geminiBgLight: '#f0f4f9', // Latar abu sangat muda
+                        geminiCardLight: '#ffffff',
+                        geminiBorderLight: '#c7c7c7',
+                        geminiTextLight: '#1f1f1f',
+                        geminiTextMutedLight: '#444746',
+                        geminiPrimaryLight: '#0b57d0', // Biru Google
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Prop Types -->
+    <script crossorigin src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
+
+    <!-- Recharts -->
+    <script src="https://unpkg.com/recharts@2.8.0/umd/Recharts.js"></script>
+    
+    <!-- PapaParse -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        /* Sembunyikan scrollbar untuk area tab navigasi mobile */
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* Scrollbar kustom bergaya Gemini untuk tabel */
+        .custom-scrollbar {
+            scrollbar-width: thin; /* Firefox */
+            scrollbar-color: #c7c7c7 transparent; 
+        }
+        .dark .custom-scrollbar {
+            scrollbar-color: #444746 transparent;
+        }
+        
+        /* Chrome, Edge, Safari */
+        .custom-scrollbar::-webkit-scrollbar {
+            height: 6px; /* Tinggi scrollbar horizontal */
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+            margin: 0 10px; /* Jarak dari ujung tabel */
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #c7c7c7; /* geminiBorderLight */
+            border-radius: 10px;
+        }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #444746; /* geminiBorderDark */
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background-color: #a0a0a0;
+        }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background-color: #5f6368;
+        }
+
+        /* Smooth scrolling */
+        html { scroll-behavior: smooth; }
+    </style>
+</head>
+<body class="bg-geminiBgLight text-geminiTextLight dark:bg-geminiBgDark dark:text-geminiTextDark transition-colors duration-300 antialiased selection:bg-geminiPrimaryLight/30 dark:selection:bg-geminiPrimaryDark/30">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+        const { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } = window.Recharts;
+
+        // ==========================================
+        // CONFIG: MASUKKAN ID GOOGLE SPREADSHEET DI SINI
+        // ==========================================
+        const SPREADSHEET_ID = '1EAH4tsiT8YzneMtCxu_37VVJxKGJC_OCv6qWh3KK0go';
+
+        const App = () => {
+            const [isDarkMode, setIsDarkMode] = useState(true); // Default dark mode agar langsung terasa "Gemini" nya
+            const [activeTab, setActiveTab] = useState('F5');
+            const [dataF5, setDataF5] = useState([]);
+            const [dataF6, setDataF6] = useState([]);
+            const [isLoading, setIsLoading] = useState(true);
+            const [error, setError] = useState(null);
+
+            useEffect(() => {
+                const fetchData = async () => {
+                    setIsLoading(true);
+                    setError(null);
+                    
+                    try {
+                        if (!SPREADSHEET_ID || SPREADSHEET_ID === 'MASUKKAN_ID_SPREADSHEET_ANDA_DISINI') {
+                            throw new Error("ID Spreadsheet belum diatur.");
+                        }
+
+                        const fetchSheetAsCSV = (sheetName) => {
+                            return new Promise((resolve, reject) => {
+                                // Menggunakan endpoint gviz Google Sheet agar bisa mengambil data berdasarkan nama Sheet spesifik secara akurat
+                                const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${sheetName}`;
+                                
+                                Papa.parse(url, {
+                                    download: true,
+                                    header: true,
+                                    skipEmptyLines: true,
+                                    // PapaParse akan otomatis mendeteksi tanda ';' atau ','
+                                    complete: (results) => resolve(results.data),
+                                    error: (err) => reject(new Error(`Gagal memuat data ${sheetName}.`))
+                                });
+                            });
+                        };
+
+                        const [f5Results, f6Results] = await Promise.all([
+                            fetchSheetAsCSV('F5'),
+                            fetchSheetAsCSV('F6')
+                        ]);
+                        
+                        setDataF5(f5Results || []);
+                        setDataF6(f6Results || []);
+                    } catch (err) {
+                        setError(err.message);
+                    } finally {
+                        setIsLoading(false);
+                    }
+                };
+
+                fetchData();
+            }, []);
+
+            useEffect(() => {
+                lucide.createIcons();
+                if (isDarkMode) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
+            }, [isDarkMode, isLoading, activeTab]);
+
+            const parseNumber = (val) => {
+                if (val === undefined || val === null || val === '-' || val === '') return 0;
+                if (typeof val === 'number') return val;
+                const cleaned = val.toString().trim().replace(/\./g, '').replace(/,/g, '.');
+                const num = parseFloat(cleaned);
+                return isNaN(num) ? 0 : num;
+            };
+
+            // Mengubah format desimal agar selalu seragam 2 angka di belakang koma
+            const formatNumber = (num) => {
+                return new Intl.NumberFormat('id-ID', { 
+                    minimumFractionDigits: 2, 
+                    maximumFractionDigits: 2 
+                }).format(num);
+            };
+
+            // Format khusus untuk Y-Axis pada grafik (Singkatan Rb/Jt)
+            const formatYAxis = (value) => {
+                if (value === 0) return '0';
+                if (value >= 1000000) return (value / 1000000).toLocaleString('id-ID') + ' Jt';
+                if (value >= 1000) return (value / 1000).toLocaleString('id-ID') + ' Rb';
+                return value.toLocaleString('id-ID');
+            };
+
+            const currentData = activeTab === 'F5' ? dataF5 : dataF6;
+
+            const [selectedTahun, setSelectedTahun] = useState('All');
+            const [selectedProvinsi, setSelectedProvinsi] = useState('All');
+            const [selectedKabupaten, setSelectedKabupaten] = useState('All');
+            const [selectedProduk, setSelectedProduk] = useState('All');
+
+            useEffect(() => {
+                setSelectedKabupaten('All');
+            }, [selectedProvinsi]);
+
+            useEffect(() => {
+                setSelectedProvinsi('All');
+                setSelectedKabupaten('All');
+                setSelectedProduk('All');
+            }, [activeTab]);
+
+            const filterOptions = useMemo(() => {
+                if (!currentData || currentData.length === 0) return { tahun: [], provinsi: [], produk: [] };
+                
+                const tahunSet = new Set();
+                const provinsiSet = new Set();
+                const produkSet = new Set();
+                
+                currentData.forEach(row => {
+                    if (row.Tahun && row.Tahun.trim() !== '') tahunSet.add(row.Tahun);
+                    if (row.Provinsi && row.Provinsi.trim() !== '') provinsiSet.add(row.Provinsi);
+                    
+                    if (row.Produk && row.Produk.trim() !== '') {
+                        const namaProduk = row.Produk.toUpperCase();
+                        if (namaProduk === 'UREA' || namaProduk === 'NPK') {
+                            produkSet.add(row.Produk);
+                        }
+                    }
+                });
+
+                return {
+                    tahun: Array.from(tahunSet).sort(),
+                    provinsi: Array.from(provinsiSet).sort(),
+                    produk: Array.from(produkSet).sort()
+                };
+            }, [currentData]);
+
+            const kabupatenOptions = useMemo(() => {
+                if (!currentData || currentData.length === 0) return [];
+                const kabSet = new Set();
+                currentData.forEach(row => {
+                    if (selectedProvinsi === 'All' || row.Provinsi === selectedProvinsi) {
+                        if (row.Kabupaten && row.Kabupaten.trim() !== '') kabSet.add(row.Kabupaten);
+                    }
+                });
+                return Array.from(kabSet).sort();
+            }, [currentData, selectedProvinsi]);
+
+            useEffect(() => {
+                if (filterOptions.tahun.length > 0) {
+                    if (selectedTahun === 'All' || !filterOptions.tahun.includes(selectedTahun)) {
+                        setSelectedTahun(filterOptions.tahun[filterOptions.tahun.length - 1]);
+                    }
+                }
+            }, [filterOptions.tahun, selectedTahun]);
+
+            const filteredData = useMemo(() => {
+                if (!currentData || currentData.length === 0) return [];
+                return currentData.filter(row => {
+                    const matchTahun = selectedTahun === 'All' || String(row.Tahun) === String(selectedTahun);
+                    const matchProvinsi = selectedProvinsi === 'All' || String(row.Provinsi) === String(selectedProvinsi);
+                    const matchKabupaten = selectedKabupaten === 'All' || String(row.Kabupaten) === String(selectedKabupaten);
+                    const matchProduk = selectedProduk === 'All' || String(row.Produk) === String(selectedProduk);
+                    
+                    return matchTahun && matchProvinsi && matchKabupaten && matchProduk;
+                });
+            }, [currentData, selectedTahun, selectedProvinsi, selectedKabupaten, selectedProduk]);
+
+            // Helper untuk standardisasi kunci timeline agar Tabel dan Card 100% sinkron
+            const getTimelineKey = (row) => {
+                const prov = (row.Provinsi || '').toString().trim().toUpperCase() || 'UNKNOWN';
+                const kab = (row.Kabupaten || '').toString().trim().toUpperCase() || 'UNKNOWN';
+                const dist = (row['Kode Distributor'] || row['Nama Distributor'] || '').toString().trim().toUpperCase() || 'UNKNOWN';
+                const prod = (row.Produk || '').toString().trim().toUpperCase() || 'UNKNOWN';
+                return `${prov}_${kab}_${dist}_${prod}`;
+            };
+
+            const dashboardStats = useMemo(() => {
+                if (!filteredData || filteredData.length === 0) return { totalStokAwal: 0, totalPenebusan: 0, totalPenyaluran: 0, totalStok: 0 };
+                let penebusan = 0, penyaluran = 0;
+                
+                // Gunakan timeline map untuk melacak stok per area, distributor, dan produk secara spesifik
+                const timeline = {};
+
+                for (let i = 0; i < filteredData.length; i++) {
+                    const row = filteredData[i];
+                    if(row.Status === 'Approve') {
+                        penebusan += parseNumber(row.Penebusan);
+                        penyaluran += parseNumber(row.Penyaluran);
+                        
+                        const tKey = getTimelineKey(row);
+                        const bulan = parseInt(row.Bulan) || 0;
+                        
+                        if (!timeline[tKey]) {
+                            timeline[tKey] = { minBulan: bulan, maxBulan: bulan, stokAwalByBulan: {}, stokAkhirByBulan: {} };
+                        }
+
+                        // Update deteksi bulan pertama dan bulan terakhir
+                        if (bulan < timeline[tKey].minBulan) timeline[tKey].minBulan = bulan;
+                        if (bulan > timeline[tKey].maxBulan) timeline[tKey].maxBulan = bulan;
+
+                        // Akumulasi stok jika ada data ganda di bulan yang SAMA
+                        if (!timeline[tKey].stokAwalByBulan[bulan]) timeline[tKey].stokAwalByBulan[bulan] = 0;
+                        if (!timeline[tKey].stokAkhirByBulan[bulan]) timeline[tKey].stokAkhirByBulan[bulan] = 0;
+
+                        timeline[tKey].stokAwalByBulan[bulan] += parseNumber(row['Stok Awal']);
+                        timeline[tKey].stokAkhirByBulan[bulan] += parseNumber(row['Stok Akhir']);
+                    }
+                }
+
+                let totalStokAwal = 0;
+                let totalStokAkhir = 0;
+
+                // Hitung total murni dari bulan paling awal dan paling akhir untuk setiap entitas
+                for (const tKey in timeline) {
+                    const t = timeline[tKey];
+                    totalStokAwal += t.stokAwalByBulan[t.minBulan] || 0;
+                    totalStokAkhir += t.stokAkhirByBulan[t.maxBulan] || 0;
+                }
+
+                return { totalStokAwal, totalPenebusan: penebusan, totalPenyaluran: penyaluran, totalStok: totalStokAkhir };
+            }, [filteredData]);
+
+            const chartDataBulanan = useMemo(() => {
+                if (!filteredData || filteredData.length === 0) return [];
+                const bulanan = {};
+                const namaBulanArr = ["JAN", "FEB", "MAR", "APR", "MEI", "JUN", "JUL", "AGU", "SEP", "OKT", "NOV", "DES"];
+                
+                for (let i = 0; i < filteredData.length; i++) {
+                    const row = filteredData[i];
+                    if(row.Status !== 'Approve') continue;
+                    
+                    const bulanAngka = parseInt(row.Bulan);
+                    if (isNaN(bulanAngka) || bulanAngka < 1 || bulanAngka > 12) continue;
+                    
+                    const bulanLabel = namaBulanArr[bulanAngka - 1];
+                    if (!bulanan[bulanAngka]) bulanan[bulanAngka] = { name: bulanLabel, indexBulan: bulanAngka, Penebusan: 0, Penyaluran: 0 };
+                    
+                    bulanan[bulanAngka].Penebusan += parseNumber(row.Penebusan);
+                    bulanan[bulanAngka].Penyaluran += parseNumber(row.Penyaluran);
+                }
+                return Object.values(bulanan).sort((a, b) => a.indexBulan - b.indexBulan);
+            }, [filteredData]);
+
+            const topDistributor = useMemo(() => {
+                if (!filteredData || filteredData.length === 0) return [];
+                const dist = {};
+                for (let i = 0; i < filteredData.length; i++) {
+                    const row = filteredData[i];
+                    if(row.Status !== 'Approve') continue;
+                    const nama = row['Nama Distributor'];
+                    if (!nama || nama.trim() === '') continue;
+                    
+                    if (!dist[nama]) dist[nama] = { name: nama, value: 0 };
+                    dist[nama].value += parseNumber(row.Penyaluran);
+                }
+                return Object.values(dist).sort((a, b) => b.value - a.value).slice(0, 5);
+            }, [filteredData]);
+
+            // --- DATA TABEL DINAMIS ---
+            const tableData = useMemo(() => {
+                if (!filteredData || filteredData.length === 0) return { labelHeader: 'Area', data: [] };
+                
+                const grouped = {};
+                let groupByKey = '';
+                let labelHeader = '';
+
+                // Logika hirarki: Provinsi -> Kabupaten -> Distributor
+                if (selectedProvinsi === 'All') {
+                    groupByKey = 'Provinsi';
+                    labelHeader = 'Provinsi';
+                } else if (selectedKabupaten === 'All') {
+                    groupByKey = 'Kabupaten';
+                    labelHeader = 'Kabupaten';
+                } else {
+                    groupByKey = 'Nama Distributor';
+                    labelHeader = 'Distributor';
+                }
+
+                for (let i = 0; i < filteredData.length; i++) {
+                    const row = filteredData[i];
+                    if(row.Status !== 'Approve') continue;
+                    
+                    let groupName = row[groupByKey];
+                    if (groupName === undefined || groupName === null || groupName.toString().trim() === '' || groupName === '-') {
+                        groupName = 'Tidak Diketahui';
+                    }
+                    
+                    if (!grouped[groupName]) {
+                        grouped[groupName] = { name: groupName, Penebusan: 0, Penyaluran: 0, timeline: {} };
+                    }
+                    
+                    grouped[groupName].Penebusan += parseNumber(row.Penebusan);
+                    grouped[groupName].Penyaluran += parseNumber(row.Penyaluran);
+
+                    const tKey = getTimelineKey(row);
+                    const bulan = parseInt(row.Bulan) || 0;
+                    
+                    if (!grouped[groupName].timeline[tKey]) {
+                        grouped[groupName].timeline[tKey] = { minBulan: bulan, maxBulan: bulan, stokAwalByBulan: {}, stokAkhirByBulan: {} };
+                    }
+
+                    const t = grouped[groupName].timeline[tKey];
+                    if (bulan < t.minBulan) t.minBulan = bulan;
+                    if (bulan > t.maxBulan) t.maxBulan = bulan;
+
+                    if (!t.stokAwalByBulan[bulan]) t.stokAwalByBulan[bulan] = 0;
+                    if (!t.stokAkhirByBulan[bulan]) t.stokAkhirByBulan[bulan] = 0;
+
+                    t.stokAwalByBulan[bulan] += parseNumber(row['Stok Awal']);
+                    t.stokAkhirByBulan[bulan] += parseNumber(row['Stok Akhir']);
+                }
+
+                const finalData = Object.values(grouped).map(g => {
+                    let totalStokAwal = 0;
+                    let totalStokAkhir = 0;
+                    
+                    for (const tKey in g.timeline) {
+                        const t = g.timeline[tKey];
+                        totalStokAwal += t.stokAwalByBulan[t.minBulan] || 0;
+                        totalStokAkhir += t.stokAkhirByBulan[t.maxBulan] || 0;
+                    }
+                    
+                    return {
+                        name: g.name,
+                        StokAwal: totalStokAwal,
+                        Penebusan: g.Penebusan,
+                        Penyaluran: g.Penyaluran,
+                        StokAkhir: totalStokAkhir
+                    };
+                });
+
+                return {
+                    labelHeader,
+                    data: finalData.sort((a, b) => b.Penyaluran - a.Penyaluran) // Urutkan berdasarkan Penyaluran tertinggi
+                };
+            }, [filteredData, selectedProvinsi, selectedKabupaten]);
+
+            const maxPenyaluranTable = useMemo(() => {
+                if (!tableData.data || tableData.data.length === 0) return 0;
+                return Math.max(...tableData.data.map(d => d.Penyaluran));
+            }, [tableData.data]);
+
+            const LoadingView = () => (
+                <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
+                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-geminiPrimaryLight dark:border-geminiPrimaryDark mb-6"></div>
+                    <h2 className="text-lg sm:text-xl font-medium text-geminiTextLight dark:text-geminiTextDark">Menyiapkan Ruang Kerja...</h2>
+                    <p className="text-geminiTextMutedLight dark:text-geminiTextMutedDark mt-2 text-center text-sm max-w-sm">Sedang memuat data operasional dari database terpusat.</p>
+                </div>
+            );
+
+            const ErrorView = () => (
+                <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
+                    <div className="bg-red-100 dark:bg-red-900/30 p-4 rounded-full mb-4">
+                        <i data-lucide="alert-octagon" className="w-10 h-10 text-red-600 dark:text-red-400"></i>
+                    </div>
+                    <h2 className="text-xl font-medium text-geminiTextLight dark:text-geminiTextDark">Akses Data Gagal</h2>
+                    <p className="text-red-600 dark:text-red-400 mt-2 text-center max-w-md text-sm">{error}</p>
+                </div>
+            );
+
+            return (
+                <div className="min-h-screen flex flex-col relative pb-6 sm:pb-10">
+                    {/* Header */}
+                    <header className="sticky top-0 z-50 bg-geminiBgLight/80 dark:bg-geminiBgDark/80 backdrop-blur-lg border-b border-geminiBorderLight dark:border-geminiBorderDark transition-colors duration-300">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                            <div className="flex justify-between items-center h-14 sm:h-16">
+                                <div className="flex items-center gap-2 sm:gap-3">
+                                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-purple-500 flex items-center justify-center">
+                                        <i data-lucide="sparkles" className="w-4 h-4 text-white"></i>
+                                    </div>
+                                    <h1 className="text-base sm:text-xl font-semibold tracking-tight">Dashboard F5/F6 PSP</h1>
+                                </div>
+                                <button 
+                                    onClick={() => setIsDarkMode(!isDarkMode)}
+                                    className="p-2 sm:p-2.5 rounded-full bg-geminiCardLight dark:bg-geminiCardDark border border-geminiBorderLight dark:border-geminiBorderDark hover:bg-slate-100 dark:hover:bg-[#2a2b2c] transition-all"
+                                    aria-label="Toggle Dark Mode"
+                                >
+                                    <i data-lucide={isDarkMode ? "sun" : "moon"} className="w-4 h-4 sm:w-5 sm:h-5"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </header>
+
+                    <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 mt-6 sm:mt-8">
+                        
+                        {/* Tab Navigation */}
+                        <div className="flex items-center gap-2 sm:gap-3 mb-6 sm:mb-8 overflow-x-auto hide-scrollbar pb-2">
+                            {['F5', 'F6'].map((tab) => (
+                                <button
+                                    key={tab}
+                                    onClick={() => setActiveTab(tab)}
+                                    className={`px-5 py-2 sm:px-6 sm:py-2.5 rounded-full font-medium text-sm transition-all whitespace-nowrap border ${
+                                        activeTab === tab 
+                                        ? 'bg-geminiTextLight text-geminiBgLight dark:bg-geminiTextDark dark:text-geminiBgDark border-transparent shadow-sm' 
+                                        : 'bg-transparent text-geminiTextMutedLight dark:text-geminiTextMutedDark border-geminiBorderLight dark:border-geminiBorderDark hover:bg-geminiCardLight dark:hover:bg-geminiCardDark'
+                                    }`}
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <i data-lucide="file-spreadsheet" className="w-4 h-4"></i>
+                                        Lampiran {tab}
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+
+                        {isLoading ? (
+                            <LoadingView />
+                        ) : error ? (
+                            <ErrorView />
+                        ) : (
+                            <div className="space-y-6 sm:space-y-8 animate-fade-in">
+                                
+                                {/* Bagian Ringkasan Data telah dihapus sesuai permintaan */}
+
+                                {/* Filter Section */}
+                                <div className="bg-geminiCardLight dark:bg-geminiCardDark p-3 sm:p-5 rounded-2xl sm:rounded-3xl border border-geminiBorderLight dark:border-geminiBorderDark grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 shadow-sm">
+                                    {[
+                                        { label: 'Tahun', value: selectedTahun, setter: setSelectedTahun, options: filterOptions.tahun, disabled: false },
+                                        { label: 'Provinsi', value: selectedProvinsi, setter: setSelectedProvinsi, options: ['All', ...filterOptions.provinsi], disabled: false },
+                                        { label: 'Kabupaten', value: selectedKabupaten, setter: setSelectedKabupaten, options: ['All', ...kabupatenOptions], disabled: kabupatenOptions.length === 0 },
+                                        { label: 'Produk', value: selectedProduk, setter: setSelectedProduk, options: ['All', ...filterOptions.produk], disabled: false }
+                                    ].map((filter, idx) => (
+                                        <div key={idx} className="flex flex-col overflow-hidden">
+                                            <label className="text-[10px] sm:text-xs font-medium text-geminiTextMutedLight dark:text-geminiTextMutedDark mb-1 sm:mb-1.5 ml-1 truncate">{filter.label}</label>
+                                            <select 
+                                                value={filter.value} 
+                                                onChange={(e) => filter.setter(e.target.value)}
+                                                disabled={filter.disabled}
+                                                className="w-full bg-geminiBgLight dark:bg-[#131314] border border-geminiBorderLight dark:border-[#444746] text-geminiTextLight dark:text-geminiTextDark rounded-lg sm:rounded-xl px-2 sm:px-3.5 py-1.5 sm:py-2.5 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-geminiPrimaryLight/50 dark:focus:ring-geminiPrimaryDark/50 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed appearance-none transition-all truncate"
+                                                style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.25rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.2em 1.2em', paddingRight: '1.5rem' }}
+                                            >
+                                                {filter.options.map((opt) => (
+                                                    <option key={opt} value={opt}>{opt === 'All' ? `Semua ${filter.label}` : opt}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Charts Area - TAMPILAN SEIMBANG & PROFESIONAL */}
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-6 items-stretch">
+                                    
+                                    {/* Bar Chart */}
+                                    <div className="lg:col-span-2 bg-geminiCardLight dark:bg-geminiCardDark p-5 sm:p-6 rounded-2xl sm:rounded-3xl border border-geminiBorderLight dark:border-geminiBorderDark shadow-sm flex flex-col">
+                                        <div className="flex justify-between items-center mb-4 sm:mb-6">
+                                            <h3 className="text-base sm:text-lg font-semibold">Tren Bulanan</h3>
+                                            <span className="text-[10px] sm:text-xs font-medium px-2.5 py-1 bg-geminiBgLight dark:bg-[#131314] text-geminiTextMutedLight dark:text-geminiTextMutedDark rounded-md border border-geminiBorderLight dark:border-[#444746]">Ton</span>
+                                        </div>
+                                        
+                                        {/* Gunakan flex-1 agar grafik otomatis memenuhi seluruh sisa tinggi (height) dari card-nya */}
+                                        <div className="flex-1 w-full min-h-[280px] sm:min-h-[340px] text-xs sm:text-sm">
+                                            {chartDataBulanan.length > 0 ? (
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <BarChart data={chartDataBulanan} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? '#333537' : '#e0e0e0'} />
+                                                        <XAxis dataKey="name" tick={{fill: isDarkMode ? '#c4c7c5' : '#444746'}} axisLine={false} tickLine={false} dy={10} />
+                                                        <YAxis tick={{fill: isDarkMode ? '#c4c7c5' : '#444746'}} axisLine={false} tickLine={false} tickFormatter={formatYAxis} width={65} />
+                                                        <Tooltip 
+                                                            contentStyle={{ 
+                                                                backgroundColor: isDarkMode ? '#1e1f20' : '#ffffff', 
+                                                                borderColor: isDarkMode ? '#444746' : '#c7c7c7', 
+                                                                color: isDarkMode ? '#e3e3e3' : '#1f1f1f',
+                                                                borderRadius: '12px',
+                                                                padding: '12px',
+                                                                boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)'
+                                                            }}
+                                                            itemStyle={{ fontWeight: 500 }}
+                                                            formatter={(value) => [`${formatNumber(value)} Ton`]}
+                                                            cursor={{fill: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)'}}
+                                                        />
+                                                        <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="circle" />
+                                                        <Bar dataKey="Penebusan" fill={isDarkMode ? '#a8c7fa' : '#0b57d0'} radius={[4, 4, 0, 0]} maxBarSize={40} />
+                                                        <Bar dataKey="Penyaluran" fill={isDarkMode ? '#81c995' : '#188038'} radius={[4, 4, 0, 0]} maxBarSize={40} />
+                                                    </BarChart>
+                                                </ResponsiveContainer>
+                                            ) : (
+                                                <div className="h-full flex flex-col items-center justify-center text-geminiTextMutedLight dark:text-geminiTextMutedDark">
+                                                    <i data-lucide="bar-chart-2" className="w-8 h-8 mb-2 opacity-50"></i>
+                                                    <p>Data tidak tersedia</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Top Distributors List */}
+                                    <div className="bg-geminiCardLight dark:bg-geminiCardDark p-5 sm:p-6 rounded-2xl sm:rounded-3xl border border-geminiBorderLight dark:border-geminiBorderDark shadow-sm flex flex-col">
+                                        <h3 className="text-base sm:text-lg font-semibold mb-4 sm:mb-6">Top 5 Penyaluran</h3>
+                                        {/* flex-1 memastikan bungkus list mengikuti tinggi grafik sebelahnya */}
+                                        <div className="flex-1 flex flex-col">
+                                            {topDistributor.length > 0 ? (
+                                                <ul className="flex flex-col gap-3 sm:gap-4 h-full">
+                                                    {topDistributor.map((item, index) => (
+                                                        // Ditambahkan 'flex-1' agar setiap baris membagi rata sisa ruang yang ada
+                                                        <li key={index} className="flex-1 flex items-center justify-between p-3 sm:p-4 bg-geminiBgLight dark:bg-[#131314] border border-transparent dark:border-[#2a2b2c] rounded-xl sm:rounded-2xl hover:border-geminiBorderLight dark:hover:border-[#444746] transition-colors">
+                                                            <div className="flex items-center overflow-hidden flex-1 pr-3">
+                                                                <div className="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-geminiPrimaryLight/10 dark:bg-geminiPrimaryDark/10 text-geminiPrimaryLight dark:text-geminiPrimaryDark flex items-center justify-center font-bold text-xs sm:text-sm mr-3">
+                                                                    {index + 1}
+                                                                </div>
+                                                                <span className="font-medium text-sm sm:text-base truncate">{item.name}</span>
+                                                            </div>
+                                                            <div className="text-right flex-shrink-0">
+                                                                <span className="block font-semibold text-sm sm:text-base">{formatNumber(item.value)}</span>
+                                                                <span className="text-[10px] sm:text-xs text-geminiTextMutedLight dark:text-geminiTextMutedDark">Ton</span>
+                                                            </div>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            ) : (
+                                                <div className="h-full flex flex-col items-center justify-center text-center">
+                                                    <div className="p-4 rounded-full bg-geminiBgLight dark:bg-[#131314] mb-3">
+                                                        <i data-lucide="inbox" className="w-6 h-6 sm:w-8 sm:h-8 text-geminiTextMutedLight dark:text-geminiTextMutedDark opacity-50"></i>
+                                                    </div>
+                                                    <p className="text-sm text-geminiTextMutedLight dark:text-geminiTextMutedDark">Data distributor kosong</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Dynamic Table Section - ESTETIK PROFESIONAL */}
+                                <div className="bg-geminiCardLight dark:bg-geminiCardDark rounded-2xl sm:rounded-3xl border border-geminiBorderLight dark:border-geminiBorderDark shadow-sm overflow-hidden">
+                                    <div className="p-5 sm:p-6 border-b border-geminiBorderLight dark:border-geminiBorderDark flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                                        <div>
+                                            <h3 className="text-base sm:text-lg font-semibold">Rincian Data per {tableData.labelHeader}</h3>
+                                            <p className="text-sm text-geminiTextMutedLight dark:text-geminiTextMutedDark mt-1">Performa distribusi berdasarkan volume penyaluran aktual.</p>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Tambahkan class custom-scrollbar dan atur padding bawah (pb) agar kursor tidak menimpa baris terbawah */}
+                                    <div className="overflow-x-auto pb-3 custom-scrollbar">
+                                        <table className="w-full min-w-[800px] text-left border-collapse">
+                                            <thead>
+                                                <tr className="bg-slate-50 dark:bg-[#131314]/80 text-[10px] sm:text-xs font-semibold tracking-wider text-geminiTextMutedLight dark:text-geminiTextMutedDark uppercase border-b border-geminiBorderLight dark:border-geminiBorderDark">
+                                                    <th className="py-4 px-4 sm:px-6 text-center w-16">Rank</th>
+                                                    <th className="py-4 px-4 sm:px-6">{tableData.labelHeader}</th>
+                                                    <th className="py-4 px-4 sm:px-6 text-right">Stok Awal</th>
+                                                    <th className="py-4 px-4 sm:px-6 text-right">Penebusan</th>
+                                                    <th className="py-4 px-4 sm:px-6 text-right">Penyaluran</th>
+                                                    <th className="py-4 px-4 sm:px-6 text-right">Stok Akhir</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="text-sm divide-y divide-geminiBorderLight/60 dark:divide-geminiBorderDark/60">
+                                                {tableData.data.length > 0 ? (
+                                                    tableData.data.map((row, index) => {
+                                                        // Hitung lebar persentase untuk Data Bar
+                                                        const barWidth = maxPenyaluranTable > 0 ? (row.Penyaluran / maxPenyaluranTable) * 100 : 0;
+                                                        
+                                                        // Styling Badge Ranking
+                                                        let badgeClass = "bg-slate-100 text-slate-500 dark:bg-[#2a2b2c] dark:text-slate-400";
+                                                        if (index === 0) badgeClass = "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400 ring-1 ring-yellow-400/30"; // Rank 1 Gold
+                                                        else if (index === 1) badgeClass = "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300 ring-1 ring-slate-400/30"; // Rank 2 Silver
+                                                        else if (index === 2) badgeClass = "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-400 ring-1 ring-orange-400/30"; // Rank 3 Bronze
+
+                                                        return (
+                                                            <tr key={index} className="group hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors duration-200">
+                                                                <td className="py-3 px-4 sm:px-6">
+                                                                    <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center font-bold text-xs mx-auto transition-colors ${badgeClass}`}>
+                                                                        {index + 1}
+                                                                    </div>
+                                                                </td>
+                                                                <td className="py-3 px-4 sm:px-6 font-medium text-geminiTextLight dark:text-geminiTextDark">
+                                                                    {row.name}
+                                                                </td>
+                                                                <td className="py-3 px-4 sm:px-6 text-right text-geminiTextMutedLight dark:text-geminiTextMutedDark">
+                                                                    {formatNumber(row.StokAwal)}
+                                                                </td>
+                                                                <td className="py-3 px-4 sm:px-6 text-right text-geminiTextMutedLight dark:text-geminiTextMutedDark">
+                                                                    {formatNumber(row.Penebusan)}
+                                                                </td>
+                                                                
+                                                                {/* Kolom Penyaluran dengan Data Bar (Visualisasi) */}
+                                                                <td className="py-3 px-4 sm:px-6 text-right relative min-w-[140px]">
+                                                                    {/* Background Bar */}
+                                                                    <div className="absolute inset-y-1.5 right-4 sm:right-6 bg-emerald-100 dark:bg-emerald-900/30 rounded-md transition-all duration-500 ease-out" style={{ width: `calc(${barWidth}% - 1.5rem)`, zIndex: 0 }}></div>
+                                                                    {/* Angka di atas Bar */}
+                                                                    <span className="relative z-10 text-emerald-700 dark:text-emerald-400 font-semibold drop-shadow-sm">
+                                                                        {formatNumber(row.Penyaluran)}
+                                                                    </span>
+                                                                </td>
+                                                                
+                                                                <td className="py-3 px-4 sm:px-6 text-right text-geminiTextMutedLight dark:text-geminiTextMutedDark font-medium">
+                                                                    {formatNumber(row.StokAkhir)}
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })
+                                                ) : (
+                                                    <tr>
+                                                        <td colSpan="6" className="py-12 text-center text-geminiTextMutedLight dark:text-geminiTextMutedDark">
+                                                            <div className="flex flex-col items-center justify-center">
+                                                                <i data-lucide="search-x" className="w-10 h-10 mb-3 opacity-20"></i>
+                                                                <p>Tidak ada data untuk kombinasi filter ini.</p>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                            </div>
+                        )}
+                    </main>
+
+                    {/* Footer */}
+                    <footer className="text-center mt-12 sm:mt-16 mb-4 text-xs text-geminiTextMutedLight dark:text-geminiTextMutedDark w-full px-4">
+                        <p>Copyright &copy; 2026 Adm Pemasaran & Penjualan</p>
+                        <p className="mt-1">Design by 00.0034</p>
+                    </footer>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
