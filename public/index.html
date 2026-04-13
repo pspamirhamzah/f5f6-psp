@@ -10,51 +10,31 @@
     <meta property="og:title" content="Dashboard F5/F6 PSP">
     <meta property="og:description" content="Monitoring Penyaluran/Penebusan Subsidi">
     
-    <meta property="og:image" content="https://f5f6-psp.pages.dev/thumbnail.png">
-    <meta property="og:image:type" content="image/jpeg">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    
-    <!-- Google Fonts (Inter) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- React & ReactDOM (v18) -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    
-    <!-- Prop Types -->
     <script crossorigin src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
-
-    <!-- Recharts -->
     <script crossorigin src="https://unpkg.com/recharts@2.8.0/umd/Recharts.js"></script>
-    
-    <!-- Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
             theme: {
                 extend: {
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                    },
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
                     colors: {
-                        // Palet Warna Profesional (Tanpa Border)
                         geminiBgDark: '#0e0e10',
                         geminiCardDark: '#1c1c1e',
                         geminiTextDark: '#e3e3e3',
                         geminiTextMutedDark: '#bdc1c6',
-                        
                         geminiBgLight: '#f8fafd',
                         geminiCardLight: '#ffffff',
                         geminiTextLight: '#1f1f1f',
                         geminiTextMutedLight: '#5f6368',
-
                         corpBlue: '#00529B',
                         corpYellow: '#F9AB00',
                     }
@@ -69,19 +49,13 @@
     <style>
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        
         .custom-scrollbar::-webkit-scrollbar { height: 6px; width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background-color: #d1d5db;
-            border-radius: 4px;
-        }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #d1d5db; border-radius: 4px; }
         .dark .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #3c4043; }
-
         html { scroll-behavior: smooth; }
         .animate-fade-in { animation: fadeIn 0.4s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
-        
         select {
             appearance: none;
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
@@ -100,6 +74,20 @@
 
         const SPREADSHEET_ID = '1EAH4tsiT8YzneMtCxu_37VVJxKGJC_OCv6qWh3KK0go';
 
+        // Komponen Ikon Medali Material Design (workspace_premium)
+        const MedalIcon = ({ rank, className = "w-6 h-6" }) => {
+            let colorClass = "";
+            if (rank === 1) colorClass = "text-[#FFD700] drop-shadow-[0_2px_4px_rgba(255,215,0,0.5)]"; // Emas
+            else if (rank === 2) colorClass = "text-[#C0C0C0] drop-shadow-[0_2px_4px_rgba(192,192,192,0.5)]"; // Perak
+            else if (rank === 3) colorClass = "text-[#CD7F32] drop-shadow-[0_2px_4px_rgba(205,127,50,0.5)]"; // Perunggu
+
+            return (
+                <svg className={`${className} ${colorClass}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M20 10c0-4.42-3.58-8-8-8s-8 3.58-8 8c0 2.03.76 3.87 2 5.28V23l6-2 6 2v-7.72A7.93 7.93 0 0020 10zm-8-6c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6 2.69-6 6-6zm-2.32 9.69L12 11.93l2.31 1.76-.88-2.85L15.75 9h-2.84L12 6.19 11.09 9H8.25l2.31 1.84-.88 2.85z"/>
+                </svg>
+            );
+        };
+
         const App = () => {
             const [isDarkMode, setIsDarkMode] = useState(true);
             const [activeTab, setActiveTab] = useState('F5');
@@ -107,6 +95,29 @@
             const [dataF6, setDataF6] = useState([]);
             const [isLoading, setIsLoading] = useState(true);
             const [error, setError] = useState(null);
+
+            // Fungsi Normalisasi Global
+            const normalizeData = (rawData) => {
+                if (!rawData || !Array.isArray(rawData)) return [];
+                return rawData.map(row => {
+                    const prov = (row.Provinsi || row['Nama Provinsi'] || 'Unknown').toString().trim().toUpperCase();
+                    const kab = (row.Kabupaten || row['Nama Kota/Kab'] || 'Unknown').toString().trim().toUpperCase();
+                    const prod = (row.Produk || '').toString().trim().toUpperCase();
+                    const thn = (row.Tahun || '0').toString().trim();
+                    const bln = (row.Bulan || '0').toString().trim();
+                    const status = (row.Status || '').toString().trim();
+
+                    return {
+                        ...row,
+                        Provinsi: prov,
+                        Kabupaten: kab,
+                        Tahun: thn,
+                        Bulan: bln,
+                        Produk: prod,
+                        Status: status
+                    };
+                });
+            };
 
             useEffect(() => {
                 const fetchData = async () => {
@@ -120,7 +131,7 @@
                                     download: true,
                                     header: true,
                                     skipEmptyLines: true,
-                                    complete: (results) => resolve(results.data),
+                                    complete: (results) => resolve(normalizeData(results.data)),
                                     error: (err) => reject(new Error(`Gagal memuat data ${sheetName}.`))
                                 });
                             });
@@ -129,8 +140,8 @@
                             fetchSheetAsCSV('F5'),
                             fetchSheetAsCSV('F6')
                         ]);
-                        setDataF5(f5Results || []);
-                        setDataF6(f6Results || []);
+                        setDataF5(f5Results);
+                        setDataF6(f6Results);
                     } catch (err) {
                         setError(err.message);
                     } finally {
@@ -142,25 +153,26 @@
 
             useEffect(() => {
                 lucide.createIcons();
-                if (isDarkMode) {
-                    document.documentElement.classList.add('dark');
-                } else {
-                    document.documentElement.classList.remove('dark');
-                }
+                if (isDarkMode) document.documentElement.classList.add('dark');
+                else document.documentElement.classList.remove('dark');
             }, [isDarkMode, isLoading, activeTab]);
 
+            // Diperbarui untuk menangani pemisah desimal koma (,) dan titik (.) serta pembersihan karakter
             const parseNumber = (val) => {
                 if (val === undefined || val === null || val === '-' || val === '') return 0;
                 if (typeof val === 'number') return val;
-                // Menggunakan titik sebagai pemisah ribuan dan koma sebagai desimal (Standard Indonesia)
-                const cleaned = val.toString().trim().replace(/\./g, '').replace(/,/g, '.');
+                
+                // Hapus titik ribuan, ganti koma dan titik koma ke titik desimal
+                let cleaned = val.toString().trim()
+                    .replace(/\./g, '') 
+                    .replace(/,/g, '.') 
+                    .replace(/;/g, '.'); 
+                
                 const num = parseFloat(cleaned);
                 return isNaN(num) ? 0 : num;
             };
 
-            const formatNumber = (num) => {
-                return new Intl.NumberFormat('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
-            };
+            const formatNumber = (num) => new Intl.NumberFormat('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
 
             const formatYAxis = (value) => {
                 if (value === 0) return '0';
@@ -177,18 +189,22 @@
             const [selectedProduk, setSelectedProduk] = useState('All');
 
             useEffect(() => { setSelectedKabupaten('All'); }, [selectedProvinsi]);
-            useEffect(() => { setSelectedProvinsi('All'); setSelectedKabupaten('All'); setSelectedProduk('All'); }, [activeTab]);
+            
+            // Set tahun ke 'All' sementara saat pindah tab agar useEffect di bawah bisa otomatis mencari tahun terbaru
+            useEffect(() => { 
+                setSelectedTahun('All');
+                setSelectedProvinsi('All'); 
+                setSelectedKabupaten('All'); 
+                setSelectedProduk('All'); 
+            }, [activeTab]);
 
             const filterOptions = useMemo(() => {
                 if (!currentData.length) return { tahun: [], provinsi: [], produk: [] };
                 const tahunSet = new Set(), provinsiSet = new Set(), produkSet = new Set();
                 currentData.forEach(row => {
-                    if (row.Tahun) tahunSet.add(row.Tahun);
-                    if (row.Provinsi) provinsiSet.add(row.Provinsi);
-                    if (row.Produk) {
-                        const p = row.Produk.toUpperCase();
-                        if (p === 'UREA' || p === 'NPK') produkSet.add(row.Produk);
-                    }
+                    if (row.Tahun && row.Tahun !== '0') tahunSet.add(row.Tahun);
+                    if (row.Provinsi && row.Provinsi !== 'UNKNOWN') provinsiSet.add(row.Provinsi);
+                    if (row.Produk === 'UREA' || row.Produk === 'NPK') produkSet.add(row.Produk);
                 });
                 return {
                     tahun: Array.from(tahunSet).sort(),
@@ -197,11 +213,22 @@
                 };
             }, [currentData]);
 
+            // Efek baru untuk otomatis memilih tahun terbaru (terbesar)
+            useEffect(() => {
+                if (filterOptions.tahun.length > 0) {
+                    // Karena array tahun sudah di-sort, data terakhir adalah tahun terbaru
+                    const latestYear = filterOptions.tahun[filterOptions.tahun.length - 1];
+                    if (selectedTahun === 'All' || !filterOptions.tahun.includes(selectedTahun)) {
+                        setSelectedTahun(latestYear);
+                    }
+                }
+            }, [filterOptions.tahun, selectedTahun]);
+
             const kabupatenOptions = useMemo(() => {
                 const kabSet = new Set();
                 currentData.forEach(row => {
                     if (selectedProvinsi === 'All' || row.Provinsi === selectedProvinsi) {
-                        if (row.Kabupaten) kabSet.add(row.Kabupaten);
+                        if (row.Kabupaten && row.Kabupaten !== 'UNKNOWN') kabSet.add(row.Kabupaten);
                     }
                 });
                 return Array.from(kabSet).sort();
@@ -218,19 +245,23 @@
             }, [currentData, selectedTahun, selectedProvinsi, selectedKabupaten, selectedProduk]);
 
             const getTimelineKey = (row) => {
-                const prov = (row.Provinsi || 'U').toString().trim().toUpperCase();
-                const kab = (row.Kabupaten || 'U').toString().trim().toUpperCase();
+                const prov = row.Provinsi;
+                const kab = row.Kabupaten;
                 const dist = (row['Kode Distributor'] || row['Nama Distributor'] || 'U').toString().trim().toUpperCase();
-                const prod = (row.Produk || 'U').toString().trim().toUpperCase();
+                const prod = row.Produk;
                 return `${prov}_${kab}_${dist}_${prod}`;
             };
 
-            const dashboardStats = useMemo(() => {
-                if (!filteredData.length) return { totalStokAwal: 0, totalPenebusan: 0, totalPenyaluran: 0, totalStok: 0 };
+            // Fungsi Helper untuk Menghitung Statistik agar bisa digunakan ulang
+            const calculateStats = (dataToProcess) => {
+                if (!dataToProcess || !dataToProcess.length) return { totalStokAwal: 0, totalPenebusan: 0, totalPenyaluran: 0, totalStok: 0 };
                 let penebusan = 0, penyaluran = 0;
                 const timeline = {};
-                filteredData.forEach(row => {
-                    if(row.Status === 'Approve') {
+                dataToProcess.forEach(row => {
+                    const s = row.Status ? row.Status.toLowerCase() : '';
+                    const isValidStatus = s === 'approve' || s === 'active';
+                    
+                    if(isValidStatus) {
                         penebusan += parseNumber(row.Penebusan);
                         penyaluran += parseNumber(row.Penyaluran);
                         const tKey = getTimelineKey(row), bulan = parseInt(row.Bulan) || 0;
@@ -247,13 +278,43 @@
                     sAkhir += t.stokAkhirByBulan[t.maxBulan] || 0;
                 });
                 return { totalStokAwal: sAwal, totalPenebusan: penebusan, totalPenyaluran: penyaluran, totalStok: sAkhir };
-            }, [filteredData]);
+            };
+
+            const dashboardStats = useMemo(() => calculateStats(filteredData), [filteredData]);
+
+            // Hitung Data Tahun Sebelumnya untuk Perbandingan
+            const prevYearData = useMemo(() => {
+                if (!selectedTahun || selectedTahun === 'All') return [];
+                const prevYear = String(parseInt(selectedTahun) - 1);
+                return currentData.filter(row => {
+                    const matchTahun = String(row.Tahun) === prevYear;
+                    const matchProvinsi = selectedProvinsi === 'All' || String(row.Provinsi) === String(selectedProvinsi);
+                    const matchKabupaten = selectedKabupaten === 'All' || String(row.Kabupaten) === String(selectedKabupaten);
+                    const matchProduk = selectedProduk === 'All' || String(row.Produk) === String(selectedProduk);
+                    return matchTahun && matchProvinsi && matchKabupaten && matchProduk;
+                });
+            }, [currentData, selectedTahun, selectedProvinsi, selectedKabupaten, selectedProduk]);
+
+            const prevDashboardStats = useMemo(() => calculateStats(prevYearData), [prevYearData]);
+
+            // Fungsi untuk menghitung Persentase Trend YoY
+            const getTrend = (current, prev) => {
+                if (prev === 0 && current === 0) return { value: 0, label: '0%', trend: 'neutral' };
+                if (prev === 0 && current > 0) return { value: 100, label: '+100%', trend: 'up' };
+                const diff = current - prev;
+                const percent = (diff / prev) * 100;
+                const trend = percent > 0 ? 'up' : percent < 0 ? 'down' : 'neutral';
+                const prefix = percent > 0 ? '+' : '';
+                const label = percent > 999 ? '>999%' : `${prefix}${percent.toFixed(1)}%`;
+                return { value: percent, label, trend };
+            };
 
             const chartDataBulanan = useMemo(() => {
                 const bulanan = {};
                 const namaBulanArr = ["JAN", "FEB", "MAR", "APR", "MEI", "JUN", "JUL", "AGU", "SEP", "OKT", "NOV", "DES"];
                 filteredData.forEach(row => {
-                    if(row.Status !== 'Approve') return;
+                    const s = row.Status ? row.Status.toLowerCase() : '';
+                    if(s !== 'approve' && s !== 'active') return;
                     const b = parseInt(row.Bulan);
                     if (b >= 1 && b <= 12) {
                         if (!bulanan[b]) bulanan[b] = { name: namaBulanArr[b - 1], indexBulan: b, Penebusan: 0, Penyaluran: 0 };
@@ -267,7 +328,8 @@
             const topDistributor = useMemo(() => {
                 const dist = {};
                 filteredData.forEach(row => {
-                    if(row.Status !== 'Approve') return;
+                    const s = row.Status ? row.Status.toLowerCase() : '';
+                    if(s !== 'approve' && s !== 'active') return;
                     const nama = row['Nama Distributor'];
                     if (nama) {
                         if (!dist[nama]) dist[nama] = { name: nama, value: 0 };
@@ -285,7 +347,8 @@
                 else { groupByKey = 'Nama Distributor'; labelHeader = 'Distributor'; }
 
                 filteredData.forEach(row => {
-                    if(row.Status !== 'Approve') return;
+                    const s = row.Status ? row.Status.toLowerCase() : '';
+                    if(s !== 'approve' && s !== 'active') return;
                     let groupName = row[groupByKey] || 'Tidak Diketahui';
                     if (!grouped[groupName]) grouped[groupName] = { name: groupName, Penebusan: 0, Penyaluran: 0, timeline: {} };
                     grouped[groupName].Penebusan += parseNumber(row.Penebusan);
@@ -315,17 +378,17 @@
             const LoadingView = () => (
                 <div className="flex flex-col items-center justify-center min-h-[70vh] px-4">
                     <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-corpBlue mb-6"></div>
-                    <p className="text-geminiTextMutedLight dark:text-geminiTextMutedDark text-sm font-medium text-center max-w-xs">Iwak Sepat Iwak Gabus, Makin Cepat Makin Bagus!</p>
+                    <p className="text-geminiTextMutedLight dark:text-geminiTextMutedDark text-sm font-medium text-center max-w-xs">Iwak Sepat Iwak Gabus, Makin Cepat Makin bagus!</p>
                 </div>
             );
 
             const ErrorView = () => (
-                <div className="flex flex-col items-center justify-center min-h-[70vh] px-4">
-                    <div className="bg-red-100 dark:bg-red-900/30 p-4 rounded-full mb-4">
+                <div className="flex flex-col items-center justify-center min-h-[70vh] px-4 text-center">
+                    <div className="bg-red-100 dark:bg-red-900/30 p-4 rounded-full mb-4 inline-block">
                         <i data-lucide="alert-octagon" className="w-10 h-10 text-red-600 dark:text-red-400"></i>
                     </div>
                     <h2 className="text-xl font-medium">Akses Data Gagal</h2>
-                    <p className="text-red-600 mt-2 text-center text-sm">{error}</p>
+                    <p className="text-red-600 mt-2 text-sm">{error}</p>
                 </div>
             );
 
@@ -333,16 +396,10 @@
                 <div className="min-h-screen flex flex-col pb-10">
                     <header className="sticky top-0 z-50 bg-geminiBgLight/90 dark:bg-geminiBgDark/90 backdrop-blur-xl transition-colors">
                         <div className="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center">
-                            <div className="flex items-center gap-4">
-                                <div className="w-8 h-8 rounded-lg bg-corpBlue flex items-center justify-center text-white shadow-md">
-                                    <i data-lucide="sparkles" className="w-4 h-4"></i>
-                                </div>
+                            <div className="flex items-center">
                                 <h1 className="text-lg sm:text-xl font-bold tracking-tight">Dashboard F5/F6 PSP</h1>
                             </div>
-                            <button 
-                                onClick={() => setIsDarkMode(!isDarkMode)}
-                                className="w-9 h-9 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800 transition-all hover:bg-gray-200 dark:hover:bg-gray-700"
-                            >
+                            <button onClick={() => setIsDarkMode(!isDarkMode)} className="w-9 h-9 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800 transition-all hover:bg-gray-200">
                                 <i data-lucide={isDarkMode ? "sun" : "moon"} className="w-4 h-4"></i>
                             </button>
                         </div>
@@ -351,15 +408,7 @@
                     <main className="flex-1 max-w-7xl w-full mx-auto px-6 mt-4">
                         <div className="flex items-center gap-2 mb-6 overflow-x-auto hide-scrollbar">
                             {['F5', 'F6'].map((tab) => (
-                                <button
-                                    key={tab}
-                                    onClick={() => setActiveTab(tab)}
-                                    className={`px-6 py-2 rounded-lg font-bold text-xs uppercase tracking-widest transition-all ${
-                                        activeTab === tab 
-                                        ? 'bg-corpBlue text-white shadow-lg shadow-corpBlue/20' 
-                                        : 'bg-white dark:bg-geminiCardDark text-geminiTextMutedLight dark:text-geminiTextMutedDark hover:bg-gray-50'
-                                    }`}
-                                >
+                                <button key={tab} onClick={() => setActiveTab(tab)} className={`px-6 py-2 rounded-lg font-bold text-xs uppercase tracking-widest transition-all ${activeTab === tab ? 'bg-corpBlue text-white shadow-lg' : 'bg-white dark:bg-geminiCardDark text-geminiTextMutedLight'}`}>
                                     Lampiran {tab}
                                 </button>
                             ))}
@@ -367,26 +416,18 @@
 
                         {isLoading ? <LoadingView /> : error ? <ErrorView /> : (
                             <div className="space-y-6 animate-fade-in">
-                                
                                 <div className="bg-white dark:bg-geminiCardDark p-5 rounded-xl shadow-sm grid grid-cols-2 lg:grid-cols-4 gap-4">
                                     {[
-                                        { label: 'Tahun', value: selectedTahun, setter: setSelectedTahun, options: filterOptions.tahun },
-                                        { label: 'Provinsi', value: selectedProvinsi, setter: setSelectedProvinsi, options: ['All', ...filterOptions.provinsi] },
-                                        { label: 'Kabupaten', value: selectedKabupaten, setter: setSelectedKabupaten, options: ['All', ...kabupatenOptions] },
-                                        { label: 'Produk', value: selectedProduk, setter: setSelectedProduk, options: ['All', ...filterOptions.produk] }
+                                        { label: 'Tahun', value: selectedTahun, setter: setSelectedTahun, options: filterOptions.tahun, hideAll: true },
+                                        { label: 'Provinsi', value: selectedProvinsi, setter: setSelectedProvinsi, options: filterOptions.provinsi, hideAll: false },
+                                        { label: 'Kabupaten', value: selectedKabupaten, setter: setSelectedKabupaten, options: kabupatenOptions, hideAll: false },
+                                        { label: 'Produk', value: selectedProduk, setter: setSelectedProduk, options: filterOptions.produk, hideAll: false }
                                     ].map((f, i) => (
                                         <div key={i} className="flex flex-col">
-                                            <label className="text-[10px] font-bold uppercase tracking-wider text-geminiTextMutedLight dark:text-geminiTextDark/90 mb-2 ml-0.5">
-                                                {f.label}
-                                            </label>
-                                            <select 
-                                                value={f.value} 
-                                                onChange={(e) => f.setter(e.target.value)}
-                                                className="w-full bg-gray-50 dark:bg-geminiBgDark rounded-lg px-3 py-2 text-sm font-semibold outline-none focus:ring-2 focus:ring-corpBlue/30 transition-all cursor-pointer border-none"
-                                            >
-                                                {f.options.map((opt) => (
-                                                    <option key={opt} value={opt}>{opt === 'All' ? `Semua` : opt}</option>
-                                                ))}
+                                            <label className="text-[10px] font-bold uppercase tracking-wider text-geminiTextMutedLight dark:text-geminiTextDark/90 mb-2 ml-0.5">{f.label}</label>
+                                            <select value={f.value} onChange={(e) => f.setter(e.target.value)} className="w-full bg-gray-50 dark:bg-geminiBgDark rounded-lg px-3 py-2 text-sm font-semibold outline-none border-none cursor-pointer">
+                                                {!f.hideAll && <option value="All">Seluruh {f.label}</option>}
+                                                {f.options.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
                                             </select>
                                         </div>
                                     ))}
@@ -394,23 +435,52 @@
 
                                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                                     {[
-                                        { label: 'Stok Awal', value: dashboardStats.totalStokAwal, icon: 'archive', color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-500/10' },
-                                        { label: 'Penebusan', value: dashboardStats.totalPenebusan, icon: 'shopping-cart', color: 'text-corpBlue dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-500/10' },
-                                        { label: 'Penyaluran', value: dashboardStats.totalPenyaluran, icon: 'truck', color: 'text-corpYellow dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10' },
-                                        { label: 'Stok Akhir', value: dashboardStats.totalStok, icon: 'package', color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-500/10' }
+                                        { label: 'Stok Awal', value: dashboardStats.totalStokAwal, prevValue: prevDashboardStats.totalStokAwal, trend: getTrend(dashboardStats.totalStokAwal, prevDashboardStats.totalStokAwal), icon: 'archive', color: 'text-indigo-600', bg: 'bg-indigo-50 dark:bg-indigo-500/10', glow: 'bg-indigo-500' },
+                                        { label: 'Penebusan', value: dashboardStats.totalPenebusan, prevValue: prevDashboardStats.totalPenebusan, trend: getTrend(dashboardStats.totalPenebusan, prevDashboardStats.totalPenebusan), icon: 'shopping-cart', color: 'text-corpBlue', bg: 'bg-blue-50 dark:bg-blue-500/10', glow: 'bg-blue-500' },
+                                        { label: 'Penyaluran', value: dashboardStats.totalPenyaluran, prevValue: prevDashboardStats.totalPenyaluran, trend: getTrend(dashboardStats.totalPenyaluran, prevDashboardStats.totalPenyaluran), icon: 'truck', color: 'text-corpYellow', bg: 'bg-amber-50 dark:bg-amber-500/10', glow: 'bg-amber-500' },
+                                        { label: 'Stok Akhir', value: dashboardStats.totalStok, prevValue: prevDashboardStats.totalStok, trend: getTrend(dashboardStats.totalStok, prevDashboardStats.totalStok), icon: 'package', color: 'text-rose-600', bg: 'bg-rose-50 dark:bg-rose-500/10', glow: 'bg-rose-500' }
                                     ].map((stat, idx) => (
-                                        <div key={idx} className="bg-white dark:bg-geminiCardDark p-5 rounded-xl shadow-sm hover:shadow-md transition-shadow">
-                                            <div className="flex items-center justify-between mb-4">
-                                                <div className={`w-10 h-10 rounded-lg ${stat.bg} ${stat.color} flex items-center justify-center`}>
-                                                    <i data-lucide={stat.icon} className="w-5 h-5"></i>
+                                        <div key={idx} className="bg-white dark:bg-geminiCardDark p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm relative overflow-hidden group hover:shadow-md transition-shadow">
+                                            <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full ${stat.glow} opacity-5 blur-[40px] group-hover:opacity-10 transition-opacity`}></div>
+                                            
+                                            <div className="flex items-start justify-between mb-4 relative z-10">
+                                                <div className={`w-12 h-12 rounded-xl ${stat.bg} ${stat.color} flex items-center justify-center`}>
+                                                    <i data-lucide={stat.icon} className="w-6 h-6"></i>
                                                 </div>
-                                                <span className="text-[10px] font-bold text-geminiTextMutedLight uppercase tracking-tight">Actual</span>
+                                                
+                                                {stat.trend.trend === 'up' && (
+                                                    <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-1 rounded-md">
+                                                        <i data-lucide="trending-up" className="w-3 h-3"></i> {stat.trend.label}
+                                                    </div>
+                                                )}
+                                                {stat.trend.trend === 'down' && (
+                                                    <div className="flex items-center gap-1 text-[11px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-500/10 px-2 py-1 rounded-md">
+                                                        <i data-lucide="trending-down" className="w-3 h-3"></i> {stat.trend.label}
+                                                    </div>
+                                                )}
+                                                {stat.trend.trend === 'neutral' && (
+                                                    <div className="flex items-center gap-1 text-[11px] font-bold text-gray-500 bg-gray-50 dark:bg-gray-800 px-2 py-1 rounded-md">
+                                                        <i data-lucide="minus" className="w-3 h-3"></i> {stat.trend.label}
+                                                    </div>
+                                                )}
                                             </div>
-                                            <p className="text-[10px] font-bold text-geminiTextMutedLight dark:text-geminiTextMutedDark uppercase tracking-widest mb-1">{stat.label}</p>
-                                            <h3 className="text-xl sm:text-2xl font-black leading-tight truncate">
-                                                {formatNumber(stat.value)}
-                                            </h3>
-                                            <span className="text-[10px] font-bold text-geminiTextMutedLight mt-2 block opacity-60">Metric Ton (MT)</span>
+                                            
+                                            <div className="relative z-10">
+                                                <h3 className="text-2xl font-black leading-tight tracking-tight mb-1">{formatNumber(stat.value)}</h3>
+                                                <div className="flex items-center justify-between mt-1 mb-3">
+                                                    <p className="text-[11px] font-bold text-geminiTextMutedLight dark:text-geminiTextMutedDark uppercase tracking-wider">{stat.label}</p>
+                                                    <span className="text-[10px] font-semibold text-geminiTextMutedLight opacity-50">TON</span>
+                                                </div>
+                                                
+                                                <div className="pt-3 border-t border-gray-100 dark:border-gray-800/50 flex justify-between items-center">
+                                                    <span className="text-[9px] text-geminiTextMutedLight font-medium uppercase tracking-widest">
+                                                        VS THN {parseInt(selectedTahun) - 1 || '-'}
+                                                    </span>
+                                                    <span className="text-[10px] font-bold text-geminiTextMutedLight dark:text-geminiTextDark">
+                                                        {formatNumber(stat.prevValue)}
+                                                    </span>
+                                                </div>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
@@ -420,17 +490,7 @@
                                         <div className="flex justify-between items-start mb-8">
                                             <div>
                                                 <h3 className="text-sm font-bold uppercase tracking-widest mb-1">Tren Distribusi</h3>
-                                                <p className="text-[10px] text-geminiTextMutedLight font-semibold uppercase tracking-wider">Perbandingan Bulanan</p>
-                                            </div>
-                                            <div className="flex items-center gap-4 bg-gray-50 dark:bg-geminiBgDark px-3 py-1.5 rounded-lg">
-                                                <div className="flex items-center gap-1.5">
-                                                    <span className="w-2.5 h-2.5 rounded-sm bg-corpBlue dark:bg-blue-400"></span>
-                                                    <span className="text-[10px] font-bold uppercase text-geminiTextMutedLight tracking-tighter">Penebusan</span>
-                                                </div>
-                                                <div className="flex items-center gap-1.5">
-                                                    <span className="w-3 h-0.5 bg-corpYellow rounded-full"></span>
-                                                    <span className="text-[10px] font-bold uppercase text-geminiTextMutedLight tracking-tighter">Penyaluran</span>
-                                                </div>
+                                                <p className="text-[10px] font-semibold uppercase tracking-wider text-geminiTextMutedLight">Perbandingan Bulanan</p>
                                             </div>
                                         </div>
                                         <div className="flex-1 w-full min-h-[320px] text-xs">
@@ -440,15 +500,10 @@
                                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? '#2c2e30' : '#f0f0f0'} />
                                                         <XAxis dataKey="name" tick={{fill: isDarkMode ? '#bdc1c6' : '#5f6368', fontSize: 10, fontWeight: 700}} axisLine={false} tickLine={false} dy={10} />
                                                         <YAxis tick={{fill: isDarkMode ? '#bdc1c6' : '#5f6368', fontSize: 10}} axisLine={false} tickLine={false} tickFormatter={formatYAxis} width={65} />
-                                                        <Tooltip 
-                                                            contentStyle={{ backgroundColor: isDarkMode ? '#1e1f20' : '#ffffff', border: 'none', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                                                            itemStyle={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}
-                                                            formatter={(value, name) => [`${formatNumber(value)} Ton`, name]}
-                                                            cursor={{fill: isDarkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'}}
-                                                        />
-                                                        <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', paddingTop: '20px', letterSpacing: '0.05em' }} />
+                                                        <Tooltip contentStyle={{ backgroundColor: isDarkMode ? '#1e1f20' : '#ffffff', border: 'none', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} itemStyle={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }} formatter={(v, n) => [`${formatNumber(v)} Ton`, n]} />
+                                                        <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', paddingTop: '20px' }} />
                                                         <Bar dataKey="Penebusan" name="Penebusan" fill={isDarkMode ? '#4a8df8' : '#0b57d0'} radius={[4, 4, 0, 0]} maxBarSize={24} />
-                                                        <Line type="natural" dataKey="Penyaluran" name="Penyaluran" stroke="#F9AB00" strokeWidth={3} dot={{ r: 4, fill: "#F9AB00", strokeWidth: 2 }} activeDot={{ r: 6 }} />
+                                                        <Line type="natural" dataKey="Penyaluran" name="Penyaluran" stroke="#F9AB00" strokeWidth={3} dot={{ r: 4, fill: "#F9AB00" }} activeDot={{ r: 6 }} />
                                                     </ComposedChart>
                                                 </ResponsiveContainer>
                                             ) : <div className="h-full flex items-center justify-center opacity-30 text-xs font-bold uppercase">Data Kosong</div>}
@@ -456,21 +511,25 @@
                                     </div>
 
                                     <div className="bg-white dark:bg-geminiCardDark p-6 rounded-xl shadow-sm flex flex-col">
-                                        <h3 className="text-sm font-bold uppercase tracking-widest mb-8">Top 5 Performa</h3>
-                                        <ul className="flex-1 flex flex-col gap-3">
-                                            {topDistributor.map((item, index) => (
-                                                <li key={index} className="flex-1 flex items-center justify-between p-4 bg-gray-50 dark:bg-geminiBgDark rounded-lg transition-all hover:bg-corpBlue/5 group">
+                                        <h3 className="text-sm font-bold uppercase tracking-widest mb-8">TOP 5 PUD</h3>
+                                        <ul className="flex-1 flex flex-col gap-3 overflow-y-auto hide-scrollbar">
+                                            {topDistributor.length > 0 ? topDistributor.map((item, index) => (
+                                                <li key={index} className="flex-1 flex items-center justify-between p-4 bg-gray-50 dark:bg-geminiBgDark rounded-lg hover:bg-corpBlue/5">
                                                     <div className="flex items-center overflow-hidden flex-1 pr-3">
-                                                        <div className={`w-6 h-6 rounded flex items-center justify-center font-black text-[10px] mr-4 ${index === 0 ? 'bg-corpYellow text-white' : 'bg-white dark:bg-gray-800 text-geminiTextMutedLight'}`}>
-                                                            {index + 1}
-                                                        </div>
+                                                        {index < 3 ? (
+                                                            <div className="mr-4 flex-shrink-0 flex items-center justify-center">
+                                                                <MedalIcon rank={index + 1} className="w-7 h-7" />
+                                                            </div>
+                                                        ) : (
+                                                            <div className="w-6 h-6 rounded flex items-center justify-center font-black text-[10px] mr-4 bg-white dark:bg-gray-800 text-geminiTextMutedLight flex-shrink-0">
+                                                                {index + 1}
+                                                            </div>
+                                                        )}
                                                         <span className="font-bold text-[11px] truncate uppercase tracking-tight">{item.name}</span>
                                                     </div>
-                                                    <div className="text-right flex-shrink-0">
-                                                        <span className="block font-black text-xs text-corpBlue dark:text-blue-400">{formatNumber(item.value)}</span>
-                                                    </div>
+                                                    <div className="text-right flex-shrink-0"><span className="block font-black text-xs text-corpBlue dark:text-blue-400">{formatNumber(item.value)}</span></div>
                                                 </li>
-                                            ))}
+                                            )) : <div className="text-center py-10 opacity-30 uppercase font-bold text-xs">No Data</div>}
                                         </ul>
                                     </div>
                                 </div>
@@ -478,7 +537,7 @@
                                 <div className="bg-white dark:bg-geminiCardDark rounded-xl shadow-sm overflow-hidden">
                                     <div className="p-6">
                                         <h3 className="text-sm font-bold uppercase tracking-widest">Rincian Data {tableData.labelHeader}</h3>
-                                        <p className="text-[10px] text-geminiTextMutedLight font-bold uppercase mt-1 opacity-60 tracking-wider">Laporan Akumulasi Tahunan</p>
+                                        <p className="text-[10px] text-geminiTextMutedLight font-bold uppercase mt-1 opacity-60">Laporan Akumulasi Tahunan</p>
                                     </div>
                                     <div className="overflow-x-auto pb-2 custom-scrollbar">
                                         <table className="w-full min-w-[800px] text-left">
@@ -493,16 +552,22 @@
                                                 </tr>
                                             </thead>
                                             <tbody className="text-xs divide-y divide-gray-100 dark:divide-gray-800">
-                                                {tableData.data.map((row, index) => {
+                                                {tableData.data.length > 0 ? tableData.data.map((row, index) => {
                                                     const barWidth = maxPenyaluranTable > 0 ? (row.Penyaluran / maxPenyaluranTable) * 100 : 0;
                                                     return (
                                                         <tr key={index} className="hover:bg-gray-50 dark:hover:bg-geminiBgDark/20 transition-colors">
                                                             <td className="py-4 px-6">
-                                                                <div className={`w-6 h-6 rounded flex items-center justify-center font-bold text-[10px] mx-auto ${index < 3 ? 'bg-corpBlue/10 text-corpBlue dark:bg-blue-400/20 dark:text-blue-400' : 'text-geminiTextMutedLight'}`}>
-                                                                    {index + 1}
-                                                                </div>
+                                                                {index < 3 ? (
+                                                                    <div className="mx-auto flex items-center justify-center">
+                                                                        <MedalIcon rank={index + 1} className="w-6 h-6" />
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="w-6 h-6 rounded flex items-center justify-center font-bold text-[10px] mx-auto text-geminiTextMutedLight">
+                                                                        {index + 1}
+                                                                    </div>
+                                                                )}
                                                             </td>
-                                                            <td className="py-4 px-4 font-bold text-geminiTextLight dark:text-geminiTextDark uppercase text-[10px] tracking-tight">{row.name}</td>
+                                                            <td className="py-4 px-4 font-bold uppercase text-[10px] tracking-tight">{row.name}</td>
                                                             <td className="py-4 px-4 text-right font-medium text-geminiTextMutedLight opacity-80">{formatNumber(row.StokAwal)}</td>
                                                             <td className="py-4 px-4 text-right font-medium text-geminiTextMutedLight opacity-80">{formatNumber(row.Penebusan)}</td>
                                                             <td className="py-4 px-4 text-right relative min-w-[160px]">
@@ -512,7 +577,7 @@
                                                             <td className="py-4 px-6 text-right font-bold">{formatNumber(row.StokAkhir)}</td>
                                                         </tr>
                                                     );
-                                                })}
+                                                }) : <tr><td colSpan="6" className="text-center py-20 opacity-30 font-bold uppercase">No data found</td></tr>}
                                             </tbody>
                                         </table>
                                     </div>
