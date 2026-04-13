@@ -99,14 +99,21 @@
             // Fungsi Normalisasi Global
             const normalizeData = (rawData) => {
                 if (!rawData || !Array.isArray(rawData)) return [];
+                
+                // Cek apakah sheet sumber memiliki kolom Status secara eksplisit
+                const hasStatusColumn = rawData.length > 0 && Object.keys(rawData[0]).some(k => k.trim().toLowerCase() === 'status');
+
                 return rawData.map(row => {
                     const prov = (row.Provinsi || row['Nama Provinsi'] || 'Unknown').toString().trim().toUpperCase();
                     const kab = (row.Kabupaten || row['Nama Kota/Kab'] || 'Unknown').toString().trim().toUpperCase();
                     const prod = (row.Produk || '').toString().trim().toUpperCase();
                     const thn = (row.Tahun || '0').toString().trim();
                     const bln = (row.Bulan || '0').toString().trim();
-                    const status = (row.Status || '').toString().trim();
                     const kec = (row.Kecamatan || row['Nama Kecamatan'] || '').toString().trim().toUpperCase();
+                    const dist = (row['Nama Distributor'] || row['Kode Distributor'] || '').toString().trim();
+                    
+                    // Jika tidak ada kolom status di sheet (seperti format baru F6), set sebagai valid default
+                    const statusVal = hasStatusColumn ? (row.Status || '').toString().trim() : 'DEFAULT_VALID';
 
                     return {
                         ...row,
@@ -116,9 +123,16 @@
                         Tahun: thn,
                         Bulan: bln,
                         Produk: prod,
-                        Status: status
+                        Status: statusVal,
+                        'Nama Distributor': dist
                     };
                 });
+            };
+
+            // Helper untuk mengecek apakah baris data ini tervalidasi/disetujui
+            const isRowValid = (row) => {
+                const s = (row.Status || '').toString().trim().toLowerCase();
+                return s === 'default_valid' || s === 'approve' || s === 'active';
             };
 
             useEffect(() => {
@@ -249,9 +263,10 @@
             const getTimelineKey = (row) => {
                 const prov = row.Provinsi;
                 const kab = row.Kabupaten;
-                const dist = (row['Kode Distributor'] || row['Nama Distributor'] || 'U').toString().trim().toUpperCase();
+                const kec = row.Kecamatan || 'U'; // Tambahan agregasi Kecamatan
+                const dist = (row['Nama Distributor'] || 'U').toUpperCase();
                 const prod = row.Produk;
-                return `${prov}_${kab}_${dist}_${prod}`;
+                return `${prov}_${kab}_${kec}_${dist}_${prod}`;
             };
 
             // Fungsi Helper untuk Menghitung Statistik agar bisa digunakan ulang
@@ -260,10 +275,7 @@
                 let penebusan = 0, penyaluran = 0;
                 const timeline = {};
                 dataToProcess.forEach(row => {
-                    const s = row.Status ? row.Status.toLowerCase() : '';
-                    const isValidStatus = s === 'approve' || s === 'active';
-                    
-                    if(isValidStatus) {
+                    if(isRowValid(row)) {
                         penebusan += parseNumber(row.Penebusan);
                         penyaluran += parseNumber(row.Penyaluran);
                         const tKey = getTimelineKey(row), bulan = parseInt(row.Bulan) || 0;
@@ -315,8 +327,7 @@
                 const bulanan = {};
                 const namaBulanArr = ["JAN", "FEB", "MAR", "APR", "MEI", "JUN", "JUL", "AGU", "SEP", "OKT", "NOV", "DES"];
                 filteredData.forEach(row => {
-                    const s = row.Status ? row.Status.toLowerCase() : '';
-                    if(s !== 'approve' && s !== 'active') return;
+                    if(!isRowValid(row)) return;
                     const b = parseInt(row.Bulan);
                     if (b >= 1 && b <= 12) {
                         if (!bulanan[b]) bulanan[b] = { name: namaBulanArr[b - 1], indexBulan: b, Penebusan: 0, Penyaluran: 0 };
@@ -330,8 +341,7 @@
             const topDistributor = useMemo(() => {
                 const dist = {};
                 filteredData.forEach(row => {
-                    const s = row.Status ? row.Status.toLowerCase() : '';
-                    if(s !== 'approve' && s !== 'active') return;
+                    if(!isRowValid(row)) return;
                     const nama = row['Nama Distributor'];
                     if (nama) {
                         if (!dist[nama]) dist[nama] = { name: nama, value: 0 };
@@ -363,8 +373,7 @@
                 }
 
                 filteredData.forEach(row => {
-                    const s = row.Status ? row.Status.toLowerCase() : '';
-                    if(s !== 'approve' && s !== 'active') return;
+                    if(!isRowValid(row)) return;
                     let groupName = row[groupByKey] || 'Tidak Diketahui';
                     if (!grouped[groupName]) grouped[groupName] = { name: groupName, Penebusan: 0, Penyaluran: 0, timeline: {} };
                     grouped[groupName].Penebusan += parseNumber(row.Penebusan);
