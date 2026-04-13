@@ -106,11 +106,13 @@
                     const thn = (row.Tahun || '0').toString().trim();
                     const bln = (row.Bulan || '0').toString().trim();
                     const status = (row.Status || '').toString().trim();
+                    const kec = (row.Kecamatan || row['Nama Kecamatan'] || '').toString().trim().toUpperCase();
 
                     return {
                         ...row,
                         Provinsi: prov,
                         Kabupaten: kab,
+                        Kecamatan: kec,
                         Tahun: thn,
                         Bulan: bln,
                         Produk: prod,
@@ -342,9 +344,23 @@
             const tableData = useMemo(() => {
                 const grouped = {};
                 let groupByKey = '', labelHeader = '';
-                if (selectedProvinsi === 'All') { groupByKey = 'Provinsi'; labelHeader = 'Provinsi'; }
-                else if (selectedKabupaten === 'All') { groupByKey = 'Kabupaten'; labelHeader = 'Kabupaten'; }
-                else { groupByKey = 'Nama Distributor'; labelHeader = 'Distributor'; }
+                
+                if (selectedProvinsi === 'All') { 
+                    groupByKey = 'Provinsi'; 
+                    labelHeader = 'Provinsi'; 
+                } else if (selectedKabupaten === 'All') { 
+                    groupByKey = 'Kabupaten'; 
+                    labelHeader = 'Kabupaten'; 
+                } else { 
+                    // Khusus F6 ubah menjadi Kecamatan, F5 tetap Distributor
+                    if (activeTab === 'F6') {
+                        groupByKey = 'Kecamatan';
+                        labelHeader = 'Kecamatan';
+                    } else {
+                        groupByKey = 'Nama Distributor';
+                        labelHeader = 'Distributor';
+                    }
+                }
 
                 filteredData.forEach(row => {
                     const s = row.Status ? row.Status.toLowerCase() : '';
@@ -371,7 +387,7 @@
                     return { name: g.name, StokAwal: sAwal, Penebusan: g.Penebusan, Penyaluran: g.Penyaluran, StokAkhir: sAkhir };
                 });
                 return { labelHeader, data: final.sort((a, b) => b.Penyaluran - a.Penyaluran) };
-            }, [filteredData, selectedProvinsi, selectedKabupaten]);
+            }, [filteredData, selectedProvinsi, selectedKabupaten, activeTab]);
 
             const maxPenyaluranTable = useMemo(() => tableData.data.length ? Math.max(...tableData.data.map(d => d.Penyaluran)) : 0, [tableData.data]);
 
