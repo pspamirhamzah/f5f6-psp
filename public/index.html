@@ -101,7 +101,6 @@
 
         const App = () => {
             const [activeTab, setActiveTab] = useState('F5');
-            // Modified: Default to true to hide sidebar by default on desktop
             const [isCollapsed, setIsCollapsed] = useState(true);
             const [isMobileOpen, setIsMobileOpen] = useState(false);
             const [allData, setAllData] = useState([]);
@@ -264,6 +263,15 @@
                 return Object.values(months).sort((a,b) => a.b - b.b);
             }, [filteredData]);
 
+            // Determinisasi warna gradasi batang berdasarkan filter produk
+            const currentBarGradient = useMemo(() => {
+                if (selectedProduk === 'All') return 'url(#gradAll)';
+                const p = selectedProduk.toUpperCase();
+                if (p.includes('UREA')) return 'url(#gradUrea)';
+                if (p.includes('NPK')) return 'url(#gradNpk)';
+                return 'rgba(255,255,255,0.04)';
+            }, [selectedProduk]);
+
             const drillDownGroup = useMemo(() => {
                 let key = 'provinsi';
                 let label = 'Provinsi';
@@ -415,8 +423,21 @@
                                             <ResponsiveContainer width="100%" height="100%">
                                                 <ComposedChart data={chartData} onMouseMove={(s) => s.activeTooltipIndex !== undefined && setActiveIndex(s.activeTooltipIndex)} onMouseLeave={() => setActiveIndex(null)}>
                                                     <defs>
+                                                        {/* Gradasi Putih untuk Highlight */}
                                                         <linearGradient id="activeBarGrad" x1="0" y1="0" x2="0" y2="1">
-                                                            <stop offset="0%" stopColor="#fff" stopOpacity={0.2}/><stop offset="100%" stopColor="#fff" stopOpacity={0.05}/>
+                                                            <stop offset="0%" stopColor="#fff" stopOpacity={0.3}/><stop offset="100%" stopColor="#fff" stopOpacity={0.1}/>
+                                                        </linearGradient>
+                                                        {/* Gradasi Emas ke Biru (Tanpa Filter Produk) */}
+                                                        <linearGradient id="gradAll" x1="0" y1="0" x2="0" y2="1">
+                                                            <stop offset="0%" stopColor="#FFD700" stopOpacity={0.2}/><stop offset="100%" stopColor="#85adff" stopOpacity={0.1}/>
+                                                        </linearGradient>
+                                                        {/* Gradasi Emas (Urea) - Mengikuti warna Rank 1 */}
+                                                        <linearGradient id="gradUrea" x1="0" y1="0" x2="0" y2="1">
+                                                            <stop offset="0%" stopColor="#FFD700" stopOpacity={0.25}/><stop offset="100%" stopColor="#FFD700" stopOpacity={0.05}/>
+                                                        </linearGradient>
+                                                        {/* Gradasi Biru (NPK) */}
+                                                        <linearGradient id="gradNpk" x1="0" y1="0" x2="0" y2="1">
+                                                            <stop offset="0%" stopColor="#85adff" stopOpacity={0.25}/><stop offset="100%" stopColor="#85adff" stopOpacity={0.05}/>
                                                         </linearGradient>
                                                     </defs>
                                                     <CartesianGrid strokeDasharray="0" vertical={false} stroke="rgba(255,255,255,0.02)" />
@@ -432,10 +453,15 @@
                                                     <Tooltip cursor={false} content={<CustomTooltip />} />
                                                     <Bar dataKey="Penyaluran" radius={[6, 6, 0, 0]} maxBarSize={35}>
                                                         {chartData.map((e, i) => (
-                                                            <Cell key={i} fill={i === activeIndex ? "url(#activeBarGrad)" : "rgba(255,255,255,0.04)"} stroke={i === activeIndex ? "rgba(255,255,255,0.2)" : "transparent"} className="bezier-transition" />
+                                                            <Cell 
+                                                                key={i} 
+                                                                fill={i === activeIndex ? "url(#activeBarGrad)" : currentBarGradient} 
+                                                                stroke={i === activeIndex ? "rgba(255,255,255,0.3)" : "transparent"} 
+                                                                className="bezier-transition" 
+                                                            />
                                                         ))}
                                                     </Bar>
-                                                    <Line type="monotone" dataKey="Penebusan" stroke="#85adff" strokeWidth={3} dot={false} activeDot={{ r: 4, fill: '#fff', stroke: '#85adff', strokeWidth: 2 }} style={{ filter: 'drop-shadow(0px 4px 8px rgba(133, 173, 255, 0.4))' }} connectNulls={true} />
+                                                    <Line type="monotone" dataKey="Penebusan" stroke="#85adff" strokeWidth={5} dot={false} activeDot={{ r: 4, fill: '#fff', stroke: '#85adff', strokeWidth: 2 }} style={{ filter: 'drop-shadow(0px 4px 8px rgba(133, 173, 255, 0.4))' }} connectNulls={true} />
                                                 </ComposedChart>
                                             </ResponsiveContainer>
                                         ) : (
@@ -454,16 +480,13 @@
                                     </div>
                                     <div className="flex-1 space-y-5 overflow-y-auto pr-2 custom-scrollbar">
                                         {comparisonData.map((d, i) => (
-                                            <div key={i} className="space-y-2">
-                                                <div className="flex justify-between items-center">
-                                                    <div className="flex items-center gap-3 truncate pr-4">
+                                            <div key={i} className="py-2 border-b border-white/[0.03] last:border-0">
+                                                <div className="flex justify-between items-center gap-4">
+                                                    <div className="flex items-center gap-3 truncate">
                                                         <RankIndicator index={i} />
-                                                        <span className="text-[9px] md:text-[10px] font-bold uppercase text-on-surface-variant truncate">{d.name}</span>
+                                                        <span className="text-[11px] md:text-xs font-bold uppercase text-on-surface-variant truncate">{d.name}</span>
                                                     </div>
-                                                    <span className="text-primary text-[10px] font-black">{((d.pnl/d.pnb)*100 || 0).toFixed(0)}%</span>
-                                                </div>
-                                                <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
-                                                    <div className="h-full bg-primary" style={{width: `${Math.min((d.pnl/d.pnb)*100, 100)}%`}}></div>
+                                                    <span className="text-primary text-[10px] font-black shrink-0">{((d.pnl/d.pnb)*100 || 0).toFixed(0)}%</span>
                                                 </div>
                                             </div>
                                         ))}
@@ -570,7 +593,6 @@
                         <h3 className="text-xl md:text-3xl font-black tracking-tighter text-on-background whitespace-nowrap">
                             {new Intl.NumberFormat('id-ID').format(val)}
                         </h3>
-                        {/* Modified TON style for narrow desktop look */}
                         <span className="text-xl md:text-3xl font-light text-label-dim uppercase tracking-tighter lg:scale-x-90 inline-block origin-left whitespace-nowrap">TON</span>
                     </div>
 
