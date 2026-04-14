@@ -2,7 +2,7 @@
 <html class="dark" lang="id">
 <head>
     <meta charset="utf-8"/>
-    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
     <title>F5F6 PSP Dashboard</title>
 
     <!-- THUMBNAIL PREVIEW -->
@@ -48,7 +48,7 @@
         }
     </script>
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #0c0e14; color: #e5e4ed; }
+        body { font-family: 'Inter', sans-serif; background-color: #0c0e14; color: #e5e4ed; -webkit-tap-highlight-color: transparent; }
         .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
         .glass-card {
             background: rgba(26, 29, 38, 0.7);
@@ -67,12 +67,14 @@
         }
         .animate-pulse-soft { animation: pulse-soft 2s infinite; }
         
-        .recharts-bar-rectangle path {
-            transition: all 0.3s ease;
+        /* Mobile specific adjustments */
+        @media (max-width: 768px) {
+            .recharts-responsive-container { min-height: 250px; }
+            table { font-size: 11px; }
         }
     </style>
 </head>
-<body class="bg-background overflow-hidden">
+<body class="bg-background overflow-x-hidden md:overflow-hidden">
     <div id="root"></div>
 
     <script type="text/babel">
@@ -95,6 +97,7 @@
         const App = () => {
             const [activeTab, setActiveTab] = useState('F5');
             const [isCollapsed, setIsCollapsed] = useState(false);
+            const [isMobileOpen, setIsMobileOpen] = useState(false);
             const [allData, setAllData] = useState([]);
             const [isLoading, setIsLoading] = useState(true);
             const [loadProgress, setLoadProgress] = useState(0);
@@ -109,10 +112,8 @@
             useEffect(() => {
                 const fetchParallel = async () => {
                     setIsLoading(true);
-                    setLoadProgress(5); // Start progress
-                    
+                    setLoadProgress(5);
                     try {
-                        // 1. Get total count first
                         const { count, error: countError } = await supabaseClient
                             .from('F5F6')
                             .select('*', { count: 'exact', head: true });
@@ -123,16 +124,12 @@
                             return;
                         }
 
-                        // 2. Setup parallel requests (1000 records per chunk)
                         const chunkSize = 1000;
                         const totalChunks = Math.ceil(count / chunkSize);
                         const promises = [];
-
-                        // Optimizing columns to reduce payload size
                         const columns = 'tipe_dokumen,tahun,provinsi,kabupaten,distributor,produk,penebusan,penyaluran,stok_awal,stok_akhir,bulan';
 
                         let completedChunks = 0;
-
                         for (let i = 0; i < totalChunks; i++) {
                             const promise = supabaseClient
                                 .from('F5F6')
@@ -140,7 +137,6 @@
                                 .range(i * chunkSize, (i * chunkSize) + (chunkSize - 1))
                                 .then(result => {
                                     completedChunks++;
-                                    // Update progress based on completed chunks
                                     const progress = Math.min(Math.round((completedChunks / totalChunks) * 100), 100);
                                     setLoadProgress(progress);
                                     return result.data;
@@ -148,24 +144,20 @@
                             promises.push(promise);
                         }
 
-                        // 3. Execute all requests in parallel
                         const results = await Promise.all(promises);
                         const combinedData = results.flat();
-
                         setAllData(combinedData);
                         
                         if (combinedData.length > 0) {
                             const years = [...new Set(combinedData.map(d => String(d.tahun)))].sort((a,b) => b-a);
                             setSelectedTahun(years[0]);
                         }
-                        
                         setTimeout(() => setIsLoading(false), 300);
                     } catch (err) {
                         console.error("Critical Fetch Error:", err);
                         setIsLoading(false);
                     }
                 };
-
                 fetchParallel();
             }, []);
 
@@ -262,14 +254,8 @@
             const drillDownGroup = useMemo(() => {
                 let key = 'provinsi';
                 let label = 'Provinsi';
-                if (selectedProvinsi !== 'All') {
-                    key = 'kabupaten';
-                    label = 'Kabupaten';
-                }
-                if (selectedKabupaten !== 'All') {
-                    key = 'distributor';
-                    label = 'Distributor';
-                }
+                if (selectedProvinsi !== 'All') { key = 'kabupaten'; label = 'Kabupaten'; }
+                if (selectedKabupaten !== 'All') { key = 'distributor'; label = 'Distributor'; }
                 return { key, label };
             }, [selectedProvinsi, selectedKabupaten]);
 
@@ -289,90 +275,73 @@
                 filteredData.forEach(row => {
                     const groupName = row[drillDownGroup.key] || 'Tidak Diketahui';
                     if (!groups[groupName]) {
-                        groups[groupName] = { 
-                            name: groupName, 
-                            entities: {}, 
-                            pnb: 0, 
-                            pnl: 0 
-                        };
+                        groups[groupName] = { name: groupName, entities: {}, pnb: 0, pnl: 0 };
                     }
-                    
                     const g = groups[groupName];
                     g.pnb += parseNum(row.penebusan);
                     g.pnl += parseNum(row.penyaluran);
-                    
                     const entityKey = `${row.provinsi}_${row.kabupaten}_${row.distributor}_${row.produk}`;
                     const b = parseInt(row.bulan) || 0;
                     if (!g.entities[entityKey]) {
                         g.entities[entityKey] = { minB: b, maxB: b, sA: parseNum(row.stok_awal), sE: parseNum(row.stok_akhir) };
                     } else {
-                        if (b < g.entities[entityKey].minB) {
-                            g.entities[entityKey].minB = b;
-                            g.entities[entityKey].sA = parseNum(row.stok_awal);
-                        }
-                        if (b > g.entities[entityKey].maxB) {
-                            g.entities[entityKey].maxB = b;
-                            g.entities[entityKey].sE = parseNum(row.stok_akhir);
-                        }
+                        if (b < g.entities[entityKey].minB) { g.entities[entityKey].minB = b; g.entities[entityKey].sA = parseNum(row.stok_awal); }
+                        if (b > g.entities[entityKey].maxB) { g.entities[entityKey].maxB = b; g.entities[entityKey].sE = parseNum(row.stok_akhir); }
                     }
                 });
-
                 return Object.values(groups).map(g => {
-                    let totalSA = 0;
-                    let totalSE = 0;
-                    Object.values(g.entities).forEach(e => {
-                        totalSA += e.sA;
-                        totalSE += e.sE;
-                    });
-                    return {
-                        name: g.name,
-                        sAwal: totalSA,
-                        pnb: g.pnb,
-                        pnl: g.pnl,
-                        sAkhir: totalSE
-                    };
+                    let totalSA = 0; let totalSE = 0;
+                    Object.values(g.entities).forEach(e => { totalSA += e.sA; totalSE += e.sE; });
+                    return { name: g.name, sAwal: totalSA, pnb: g.pnb, pnl: g.pnl, sAkhir: totalSE };
                 }).sort((a,b) => b.pnl - a.pnl);
             }, [filteredData, drillDownGroup]);
 
             const RankIndicator = ({ index }) => {
-                if (index === 0) return <span className="material-symbols-outlined text-[#FFD700] text-xl select-none" style={{fontVariationSettings: "'FILL' 1"}}>workspace_premium</span>;
-                if (index === 1) return <span className="material-symbols-outlined text-[#C0C0C0] text-xl select-none" style={{fontVariationSettings: "'FILL' 1"}}>workspace_premium</span>;
-                if (index === 2) return <span className="material-symbols-outlined text-[#CD7F32] text-xl select-none" style={{fontVariationSettings: "'FILL' 1"}}>workspace_premium</span>;
-                return <span className="text-[10px] font-bold text-label-dim w-5 text-center select-none">{index + 1}</span>;
+                if (index === 0) return <span className="material-symbols-outlined text-[#FFD700] text-lg md:text-xl select-none" style={{fontVariationSettings: "'FILL' 1"}}>workspace_premium</span>;
+                if (index === 1) return <span className="material-symbols-outlined text-[#C0C0C0] text-lg md:text-xl select-none" style={{fontVariationSettings: "'FILL' 1"}}>workspace_premium</span>;
+                if (index === 2) return <span className="material-symbols-outlined text-[#CD7F32] text-lg md:text-xl select-none" style={{fontVariationSettings: "'FILL' 1"}}>workspace_premium</span>;
+                return <span className="text-[9px] md:text-[10px] font-bold text-label-dim w-5 text-center select-none">{index + 1}</span>;
             };
 
             return (
-                <div className="flex h-screen overflow-hidden">
-                    {/* LOADING OVERLAY - Professional Refined Style */}
+                <div className="flex h-screen overflow-hidden relative">
+                    {/* LOADING OVERLAY */}
                     {isLoading && (
                         <div className="fixed inset-0 z-[100] bg-[#0c0e14] flex flex-col items-center justify-center">
                             <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#85adff] to-[#6e9fff] flex items-center justify-center shadow-2xl shadow-primary/10 mb-10 animate-pulse-soft">
                                 <span className="material-symbols-outlined text-[#002c66] text-2xl" style={{fontVariationSettings: "'FILL' 1"}}>database</span>
                             </div>
                             <div className="text-center space-y-6 px-6">
-                                <h2 className="text-lg font-normal text-on-background/80 tracking-normal">Menghubungkan database...</h2>
+                              <h className="text-sm font-normal text-on-background/80">Iwak Sepat Iwak Gabus <br />Makin Cepat Makin Bagus!</h>
                                 <div className="w-64 h-1 bg-white/5 rounded-full overflow-hidden mx-auto">
-                                    <div 
-                                        className="h-full bg-primary transition-all duration-700 ease-in-out" 
-                                        style={{ width: `${loadProgress}%` }}
-                                    ></div>
+                                    <div className="h-full bg-primary transition-all duration-700 ease-in-out" style={{ width: `${loadProgress}%` }}></div>
                                 </div>
-                                <div className="flex flex-col items-center gap-3">
-                                    <p className="text-[14px] text-primary/80 font-normal tracking-tight">Sinkronisasi {loadProgress}%</p>
-                                    <p className="text-[13px] text-label-dim font-normal tracking-wide italic leading-relaxed">
-                                        Iwak Sepat Iwak Gabus, Makin Cepat Makin Bagus!
-                                    </p>
-                                </div>
+                                <p className="text-[14px] text-primary/80">Sinkronisasi {loadProgress}%</p>
                             </div>
                         </div>
                     )}
 
-                    <aside className={`fixed left-0 top-0 h-screen z-50 bg-[#11131a] flex flex-col py-6 px-4 shadow-[40px_0_60px_-15px_rgba(0,0,0,0.5)] bezier-transition ${isCollapsed ? 'w-[80px]' : 'w-[240px]'}`}>
-                        <div className={`mb-10 flex items-center ${isCollapsed ? 'justify-center' : 'px-2 gap-3'}`}>
+                    {/* MOBILE OVERLAY */}
+                    {isMobileOpen && (
+                        <div 
+                            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[55] lg:hidden"
+                            onClick={() => setIsMobileOpen(false)}
+                        />
+                    )}
+
+                    {/* ASIDE (Responsive Sidebar) */}
+                    <aside className={`
+                        fixed lg:static inset-y-0 left-0 z-[60] 
+                        bg-[#11131a] flex flex-col py-6 px-4 shadow-2xl 
+                        bezier-transition transform
+                        ${isMobileOpen ? 'translate-x-0 w-[260px]' : '-translate-x-full lg:translate-x-0'}
+                        ${isCollapsed ? 'lg:w-[80px]' : 'lg:w-[240px]'}
+                    `}>
+                        <div className={`mb-10 flex items-center ${isCollapsed && !isMobileOpen ? 'justify-center' : 'px-2 gap-3'}`}>
                             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#85adff] to-[#6e9fff] flex-shrink-0 flex items-center justify-center shadow-lg shadow-primary/20">
                                 <span className="material-symbols-outlined text-[#002c66]" style={{fontVariationSettings: "'FILL' 1"}}>insights</span>
                             </div>
-                            {!isCollapsed && (
+                            {(!isCollapsed || isMobileOpen) && (
                                 <div className="overflow-hidden whitespace-nowrap">
                                     <h1 className="text-xl font-black text-on-background tracking-tight leading-none">F5F6</h1>
                                     <p className="text-[10px] text-primary font-bold tracking-[0.2em] uppercase mt-1">DATABASE</p>
@@ -381,57 +350,66 @@
                         </div>
                         <nav className="flex-1 space-y-2">
                             {['F5', 'F6'].map(tab => (
-                                <button key={tab} onClick={() => {setActiveTab(tab); setSelectedProvinsi('All'); setSelectedKabupaten('All');}} className={`w-full flex items-center rounded-xl bezier-transition ${isCollapsed ? 'justify-center p-3' : 'px-4 py-3 gap-3'} ${activeTab === tab ? 'bg-[#1d1f27] text-primary border-r-2 border-primary shadow-lg shadow-black/20' : 'text-[#aaaab3] hover:text-white hover:bg-white/5'}`}>
+                                <button key={tab} onClick={() => {setActiveTab(tab); setSelectedProvinsi('All'); setSelectedKabupaten('All'); setIsMobileOpen(false);}} className={`w-full flex items-center rounded-xl bezier-transition ${isCollapsed && !isMobileOpen ? 'justify-center p-3' : 'px-4 py-3 gap-3'} ${activeTab === tab ? 'bg-[#1d1f27] text-primary border-r-2 border-primary shadow-lg shadow-black/20' : 'text-[#aaaab3] hover:text-white hover:bg-white/5'}`}>
                                     <KeyIcon label={tab} active={activeTab === tab} />
-                                    {!isCollapsed && <span className="font-semibold text-sm">Laporan {tab}</span>}
+                                    {(!isCollapsed || isMobileOpen) && <span className="font-semibold text-sm">Laporan {tab}</span>}
                                 </button>
                             ))}
                         </nav>
                         <div className="mt-auto border-t border-white/5 pt-4">
-                            <button onClick={() => setIsCollapsed(!isCollapsed)} className={`w-full flex items-center bg-white/5 rounded-xl text-[#aaaab3] hover:text-white transition-all ${isCollapsed ? 'justify-center p-3' : 'px-4 py-3 gap-3'}`}>
+                            <button onClick={() => setIsCollapsed(!isCollapsed)} className={`hidden lg:flex w-full items-center bg-white/5 rounded-xl text-[#aaaab3] hover:text-white transition-all ${isCollapsed ? 'justify-center p-3' : 'px-4 py-3 gap-3'}`}>
                                 <span className="material-symbols-outlined">{isCollapsed ? 'last_page' : 'first_page'}</span>
                                 {!isCollapsed && <span className="text-xs font-bold uppercase tracking-widest">Kecilkan</span>}
                             </button>
                         </div>
                     </aside>
 
-                    <main className={`flex flex-col h-full bezier-transition ${isCollapsed ? 'ml-[80px] w-[calc(100%-80px)]' : 'ml-[240px] w-[calc(100%-240px)]'}`}>
-                        <header className="h-16 flex items-center px-8 border-b border-white/5 bg-background/50 backdrop-blur-md sticky top-0 z-40">
-                            <div className="flex items-center gap-2 text-xs font-medium text-on-surface-variant">
-                                <span>Analytics</span>
-                                <span className="material-symbols-outlined text-sm">chevron_right</span>
-                                <span className="text-on-surface font-bold">Dashboard {activeTab}</span>
+                    {/* MAIN CONTENT */}
+                    <main className="flex-1 flex flex-col h-full w-full min-w-0">
+                        <header className="h-16 flex items-center px-4 lg:px-8 border-b border-white/5 bg-background/50 backdrop-blur-md sticky top-0 z-40">
+                            <div className="flex items-center gap-4">
+                                <button onClick={() => setIsMobileOpen(true)} className="lg:hidden p-2 rounded-lg bg-white/5 text-primary">
+                                    <span className="material-symbols-outlined">menu</span>
+                                </button>
+                                <div className="flex items-center gap-2 text-[10px] md:text-xs font-medium text-on-surface-variant">
+                                    <span className="hidden sm:inline">Analytics</span>
+                                    <span className="material-symbols-outlined text-sm hidden sm:inline">chevron_right</span>
+                                    <span className="text-on-surface font-bold">Dashboard {activeTab}</span>
+                                </div>
                             </div>
                         </header>
 
-                        <div className="flex-1 overflow-y-auto p-8 hide-scrollbar">
-                            <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                        <div className="flex-1 overflow-y-auto p-4 lg:p-8 custom-scrollbar">
+                            {/* Filter Section - Mobile Optimized Grid */}
+                            <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
                                 <FilterSelect label="Tahun" value={selectedTahun} onChange={setSelectedTahun} options={filterOptions.tahun} showAll />
                                 <FilterSelect label="Provinsi" value={selectedProvinsi} onChange={setSelectedProvinsi} options={filterOptions.provinsi} showAll />
                                 <FilterSelect label="Kabupaten" value={selectedKabupaten} onChange={setSelectedKabupaten} options={kabupatenOptions} showAll />
                                 <FilterSelect label="Produk" value={selectedProduk} onChange={setSelectedProduk} options={filterOptions.produk} showAll />
                             </section>
 
-                            <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                            {/* KPI Cards - Grid stacking */}
+                            <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
                                 <KPICard label="Stok Awal" val={stats.sAwal} icon="inventory_2" color="text-primary" compareVal={stats.yoy.sAwal} />
                                 <KPICard label="Penebusan" val={stats.pnb} icon="payments" color="text-primary" compareVal={stats.yoy.pnb} />
                                 <KPICard label="Penyaluran" val={stats.pnl} icon="local_shipping" color="text-secondary" compareVal={stats.yoy.pnl} />
                                 <KPICard label="Stok Akhir" val={stats.sAkhir} icon="warehouse" color="text-tertiary" compareVal={stats.yoy.sAkhir} />
                             </section>
 
-                            <section className="grid grid-cols-12 gap-8 mb-8">
-                                <div className="col-span-12 lg:col-span-8 glass-card p-8 rounded-3xl flex flex-col min-h-[460px]">
-                                    <div className="flex justify-between items-start mb-10">
+                            {/* Main Visuals - Responsive Column Spans */}
+                            <section className="grid grid-cols-12 gap-4 md:gap-8 mb-6 md:mb-8">
+                                <div className="col-span-12 lg:col-span-8 glass-card p-4 md:p-8 rounded-2xl md:rounded-3xl flex flex-col min-h-[350px] md:min-h-[460px]">
+                                    <div className="flex flex-col sm:flex-row justify-between items-start mb-6 md:mb-10 gap-4">
                                         <div>
-                                            <h2 className="text-lg font-bold text-on-surface uppercase tracking-tight">Tren {selectedTahun === 'All' ? 'Tahunan' : selectedTahun}</h2>
-                                            <p className="text-[10px] text-label-dim uppercase font-bold tracking-widest">Analisis Perbandingan Data</p>
+                                            <h2 className="text-base md:text-lg font-bold text-on-surface uppercase tracking-tight">Tren {selectedTahun === 'All' ? 'Tahunan' : selectedTahun}</h2>
+                                            <p className="text-[9px] md:text-[10px] text-label-dim uppercase font-bold tracking-widest">Analisis Perbandingan Data</p>
                                         </div>
                                         <div className="flex gap-4">
                                             <LegendItem color="bg-primary" label="Penebusan" />
                                             <LegendItem color="bg-white/10" label="Penyaluran" />
                                         </div>
                                     </div>
-                                    <div className="flex-1 w-full h-[320px]">
+                                    <div className="flex-1 w-full h-[250px] md:h-[320px]">
                                         {chartData.length > 0 ? (
                                             <ResponsiveContainer width="100%" height="100%">
                                                 <ComposedChart data={chartData} onMouseMove={(s) => s.activeTooltipIndex !== undefined && setActiveIndex(s.activeTooltipIndex)} onMouseLeave={() => setActiveIndex(null)}>
@@ -442,105 +420,108 @@
                                                         </linearGradient>
                                                     </defs>
                                                     <CartesianGrid strokeDasharray="0" vertical={false} stroke="rgba(255,255,255,0.02)" />
-                                                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#666', fontWeight: 700}} dy={15} />
+                                                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 9, fill: '#666', fontWeight: 700}} dy={10} />
                                                     <YAxis hide />
                                                     <Tooltip cursor={false} content={<CustomTooltip />} />
-                                                    
-                                                    <Bar dataKey="Penyaluran" radius={[8, 8, 0, 0]} maxBarSize={45}>
+                                                    <Bar dataKey="Penyaluran" radius={[6, 6, 0, 0]} maxBarSize={35}>
                                                         {chartData.map((e, i) => (
                                                             <Cell 
                                                                 key={i} 
                                                                 fill={i === activeIndex ? "url(#activeBarGrad)" : "rgba(255,255,255,0.04)"} 
                                                                 stroke={i === activeIndex ? "rgba(255,255,255,0.2)" : "transparent"} 
-                                                                strokeWidth={i === activeIndex ? 1 : 0} 
                                                                 className="bezier-transition" 
                                                             />
                                                         ))}
                                                     </Bar>
-
                                                     <Line 
                                                         type="monotone" 
                                                         dataKey="Penebusan" 
                                                         stroke="#85adff" 
-                                                        strokeWidth={4} 
+                                                        strokeWidth={3} 
                                                         dot={false} 
-                                                        activeDot={{ r: 6, fill: '#fff', stroke: '#85adff', strokeWidth: 3 }}
-                                                        style={{ filter: 'drop-shadow(0px 4px 10px rgba(133, 173, 255, 0.5))' }}
+                                                        activeDot={{ r: 4, fill: '#fff', stroke: '#85adff', strokeWidth: 2 }}
+                                                        style={{ filter: 'drop-shadow(0px 4px 8px rgba(133, 173, 255, 0.4))' }}
                                                         connectNulls={true}
                                                     />
                                                 </ComposedChart>
                                             </ResponsiveContainer>
                                         ) : (
-                                            <div className="h-full flex flex-col items-center justify-center text-on-surface-variant">
-                                                <span className="material-symbols-outlined text-4xl mb-2 opacity-20">bar_chart_off</span>
+                                            <div className="h-full flex flex-col items-center justify-center opacity-40">
+                                                <span className="material-symbols-outlined text-4xl mb-2">bar_chart_off</span>
                                                 <p className="text-[10px] font-bold uppercase tracking-widest">Tidak ada data</p>
                                             </div>
                                         )}
                                     </div>
                                 </div>
 
-                                <div className="col-span-12 lg:col-span-4 glass-card p-8 rounded-3xl flex flex-col min-h-[460px]">
-                                    <h2 className="text-lg font-bold text-on-surface mb-6 uppercase tracking-tight">Ratio Efektivitas</h2>
-                                    <p className="text-[10px] text-label-dim font-bold uppercase mb-4 tracking-widest">Berdasarkan Alokasi Terbesar</p>
-                                    <div className="flex-1 space-y-6 overflow-y-auto pr-2 custom-scrollbar">
+                                <div className="col-span-12 lg:col-span-4 glass-card p-4 md:p-8 rounded-2xl md:rounded-3xl flex flex-col min-h-[350px] md:min-h-[460px]">
+                                    <h2 className="text-base md:text-lg font-bold text-on-surface mb-6 uppercase tracking-tight">Ratio Efektivitas</h2>
+                                    <p className="text-[9px] md:text-[10px] text-label-dim font-bold uppercase mb-4 tracking-widest">Berdasarkan Alokasi Terbesar</p>
+                                    <div className="flex-1 space-y-5 overflow-y-auto pr-2 custom-scrollbar">
                                         {comparisonData.map((d, i) => (
                                             <div key={i} className="space-y-2">
                                                 <div className="flex justify-between items-center">
                                                     <div className="flex items-center gap-3 truncate pr-4">
                                                         <RankIndicator index={i} />
-                                                        <span className="text-[10px] font-bold uppercase text-on-surface-variant truncate">{d.name}</span>
+                                                        <span className="text-[9px] md:text-[10px] font-bold uppercase text-on-surface-variant truncate">{d.name}</span>
                                                     </div>
                                                     <span className="text-primary text-[10px] font-black">{((d.pnl/d.pnb)*100 || 0).toFixed(0)}%</span>
                                                 </div>
-                                                <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden ml-8 lg:ml-0"><div className="h-full bg-primary" style={{width: `${Math.min((d.pnl/d.pnb)*100, 100)}%`}}></div></div>
+                                                <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                                                    <div className="h-full bg-primary" style={{width: `${Math.min((d.pnl/d.pnb)*100, 100)}%`}}></div>
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
                                     <div className="mt-8 pt-6 border-t border-white/5 flex justify-between items-center">
-                                        <div className="text-center"><p className="text-[9px] text-on-surface-variant font-bold uppercase tracking-widest">Ratio Rata-rata</p><p className="text-xl font-black text-primary">{stats.ratio}</p></div>
-                                        <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${parseFloat(stats.ratio) >= 0.8 ? 'bg-secondary/10 text-secondary' : 'bg-tertiary/10 text-tertiary'}`}>{parseFloat(stats.ratio) >= 0.8 ? 'Optimal' : 'Monitoring'}</div>
+                                        <div className="text-left">
+                                            <p className="text-[8px] md:text-[9px] text-on-surface-variant font-bold uppercase tracking-widest">Ratio Rata-rata</p>
+                                            <p className="text-xl md:text-2xl font-black text-primary">{stats.ratio}</p>
+                                        </div>
+                                        <div className={`px-4 py-2 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest ${parseFloat(stats.ratio) >= 0.8 ? 'bg-secondary/10 text-secondary' : 'bg-tertiary/10 text-tertiary'}`}>
+                                            {parseFloat(stats.ratio) >= 0.8 ? 'Optimal' : 'Monitoring'}
+                                        </div>
                                     </div>
                                 </div>
                             </section>
 
-                            <section className="glass-card rounded-3xl overflow-hidden mb-12">
-                                <div className="p-8 flex justify-between items-center border-b border-white/5 bg-white/[0.01]">
+                            {/* Table Section - Horizontal scroll for mobile */}
+                            <section className="glass-card rounded-2xl md:rounded-3xl overflow-hidden mb-12">
+                                <div className="p-4 md:p-8 flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-white/5 bg-white/[0.01] gap-4">
                                     <div>
-                                        <h2 className="text-lg font-bold text-on-surface uppercase tracking-tight">Rincian Penyaluran</h2>
-                                        <p className="text-[10px] text-label-dim font-bold uppercase mt-1 tracking-widest">Berdasarkan Alokasi Terbesar</p>
+                                        <h2 className="text-base md:text-lg font-bold text-on-surface uppercase tracking-tight">Rincian Penyaluran</h2>
+                                        <p className="text-[9px] md:text-[10px] text-label-dim font-bold uppercase mt-1 tracking-widest">Berdasarkan Alokasi Terbesar</p>
                                     </div>
-                                    <span className="text-[10px] font-bold text-primary uppercase bg-primary/10 px-3 py-1 rounded-full whitespace-nowrap">
+                                    <span className="text-[9px] md:text-[10px] font-bold text-primary uppercase bg-primary/10 px-3 py-1 rounded-full whitespace-nowrap">
                                         {tableData.length} {drillDownGroup.label}
                                     </span>
                                 </div>
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-left">
+                                <div className="overflow-x-auto hide-scrollbar">
+                                    <table className="w-full text-left min-w-[700px]">
                                         <thead>
-                                            <tr className="bg-white/[0.02] text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
-                                                <th className="py-5 px-6 w-16 text-center">Rank</th>
-                                                <th className="py-5 px-4">{drillDownGroup.label}</th>
-                                                <th className="py-5 px-6 text-right">Stok Awal</th>
-                                                <th className="py-5 px-6 text-right">Penebusan</th>
-                                                <th className="py-5 px-6 text-right">Penyaluran</th>
-                                                <th className="py-5 px-8 text-right">Stok Akhir</th>
+                                            <tr className="bg-white/[0.02] text-[9px] md:text-[10px] font-black uppercase tracking-widest text-on-surface-variant">
+                                                <th className="py-4 px-6 w-16 text-center">Rank</th>
+                                                <th className="py-4 px-4">{drillDownGroup.label}</th>
+                                                <th className="py-4 px-6 text-right">Stok Awal</th>
+                                                <th className="py-4 px-6 text-right">Penebusan</th>
+                                                <th className="py-4 px-6 text-right">Penyaluran</th>
+                                                <th className="py-4 px-8 text-right">Stok Akhir</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="text-xs divide-y divide-white/[0.03]">
+                                        <tbody className="text-[11px] md:text-xs divide-y divide-white/[0.03]">
                                             {tableData.map((row, i) => (
-                                                <tr key={i} className="hover:bg-white/[0.02] bezier-transition group">
-                                                    <td className="py-4 px-6 text-center">
-                                                        <div className="flex justify-center items-center h-full">
-                                                            <RankIndicator index={i} />
-                                                        </div>
+                                                <tr key={i} className="hover:bg-white/[0.02] transition-colors group">
+                                                    <td className="py-3 px-6 text-center">
+                                                        <div className="flex justify-center items-center"><RankIndicator index={i} /></div>
                                                     </td>
-                                                    <td className="py-4 px-4">
-                                                        <p className="font-bold group-hover:text-primary transition-colors uppercase tracking-tight">{row.name}</p>
-                                                        {drillDownGroup.key === 'kabupaten' && <p className="text-[9px] text-on-surface-variant uppercase font-medium">{selectedProvinsi}</p>}
+                                                    <td className="py-3 px-4">
+                                                        <p className="font-bold uppercase tracking-tight">{row.name}</p>
+                                                        {drillDownGroup.key === 'kabupaten' && <p className="text-[8px] text-on-surface-variant uppercase">{selectedProvinsi}</p>}
                                                     </td>
-                                                    <td className="py-4 px-6 text-right text-on-surface/50 font-medium">{formatNumber(row.sAwal)}</td>
-                                                    <td className="py-4 px-6 text-right text-on-surface/50 font-medium">{formatNumber(row.pnb)}</td>
-                                                    <td className="py-4 px-6 text-right text-primary font-black">{formatNumber(row.pnl)}</td>
-                                                    <td className="py-4 px-8 text-right font-black opacity-80">{formatNumber(row.sAkhir)}</td>
+                                                    <td className="py-3 px-6 text-right text-on-surface/50">{formatNumber(row.sAwal)}</td>
+                                                    <td className="py-3 px-6 text-right text-on-surface/50">{formatNumber(row.pnb)}</td>
+                                                    <td className="py-3 px-6 text-right text-primary font-black">{formatNumber(row.pnl)}</td>
+                                                    <td className="py-3 px-8 text-right font-black opacity-80">{formatNumber(row.sAkhir)}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -549,12 +530,8 @@
                             </section>
 
                             <footer className="mt-8 pb-12 text-center space-y-1 select-none">
-                                <p className="text-[11px] text-label-dim tracking-tight font-normal leading-relaxed">
-                                    Copyright © 2026 - Adm Pemasaran & Penjualan
-                                </p>
-                                <p className="text-[11px] text-label-dim tracking-tight font-normal leading-relaxed">
-                                    Design by 00.0034
-                                </p>
+                                <p className="text-[10px] text-label-dim tracking-tight">Copyright © 2026 - Adm Pemasaran & Penjualan</p>
+                                <p className="text-[10px] text-label-dim tracking-tight">Design by 00.0034</p>
                             </footer>
                         </div>
                     </main>
@@ -565,13 +542,13 @@
         const CustomTooltip = ({ active, payload, label }) => {
             if (active && payload && payload.length) {
                 return (
-                    <div className="glass-card px-4 py-3 rounded-2xl border border-primary/20 shadow-2xl">
-                        <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-2">{label}</p>
+                    <div className="glass-card px-3 py-2 rounded-xl border border-primary/20 shadow-2xl">
+                        <p className="text-[9px] font-black text-primary uppercase tracking-widest mb-1">{label}</p>
                         <div className="space-y-1">
                             {payload.map((p, idx) => (
-                                <div key={idx} className="flex justify-between gap-8 items-center">
-                                    <span className="text-[9px] font-bold text-on-surface-variant uppercase">{p.name}</span>
-                                    <span className="text-xs font-black text-on-surface">{new Intl.NumberFormat('id-ID').format(p.value)} TON</span>
+                                <div key={idx} className="flex justify-between gap-6 items-center">
+                                    <span className="text-[8px] font-bold text-on-surface-variant uppercase">{p.name}</span>
+                                    <span className="text-[10px] font-black text-on-surface">{new Intl.NumberFormat('id-ID').format(p.value)}</span>
                                 </div>
                             ))}
                         </div>
@@ -582,14 +559,14 @@
         };
 
         const FilterSelect = ({ label, value, onChange, options, showAll }) => (
-            <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-label-dim uppercase tracking-widest px-1">{label}</label>
+            <div className="space-y-1">
+                <label className="text-[9px] font-black text-label-dim uppercase tracking-widest px-1">{label}</label>
                 <div className="relative group">
-                    <select value={value} onChange={e => onChange(e.target.value)} className="w-full bg-surface-container-high border-none rounded-xl text-xs py-2.5 px-4 appearance-none focus:ring-1 focus:ring-primary/40 text-on-surface transition-all">
+                    <select value={value} onChange={e => onChange(e.target.value)} className="w-full bg-surface-container-high border-none rounded-xl text-[11px] py-2.5 px-3 appearance-none focus:ring-1 focus:ring-primary/40 text-on-surface transition-all">
                         {showAll && <option value="All">SEMUA {label.toUpperCase()}</option>}
                         {options.map((opt, i) => <option key={i} value={typeof opt === 'object' ? opt.val : opt}>{String(typeof opt === 'object' ? opt.label : opt).toUpperCase()}</option>)}
                     </select>
-                    <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-sm">expand_more</span>
+                    <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-base">expand_more</span>
                 </div>
             </div>
         );
@@ -601,29 +578,29 @@
             const trendIcon = isNegative ? 'trending_down' : 'trending_up';
             
             return (
-                <div className="glass-card p-6 rounded-3xl relative flex flex-col bezier-transition group hover:scale-[1.02] shadow-xl">
-                    <div className="flex justify-between items-start mb-6">
-                        <div className="p-3 rounded-2xl bg-white/[0.04] text-on-surface-variant group-hover:bg-primary/10 group-hover:text-primary transition-all shadow-inner">
-                            <span className="material-symbols-outlined text-2xl">{icon}</span>
+                <div className="glass-card p-4 md:p-6 rounded-2xl md:rounded-3xl relative flex flex-col group hover:scale-[1.01] transition-transform shadow-xl">
+                    <div className="flex justify-between items-start mb-4 md:mb-6">
+                        <div className="p-2.5 rounded-xl bg-white/[0.04] text-on-surface-variant group-hover:text-primary transition-all">
+                            <span className="material-symbols-outlined text-xl md:text-2xl">{icon}</span>
                         </div>
-                        <div className="px-3 py-1 rounded-full bg-white/[0.03] text-[9px] font-black text-on-surface-variant uppercase tracking-widest border border-white/5">
+                        <div className="px-2 py-0.5 rounded-full bg-white/[0.03] text-[8px] font-black text-on-surface-variant uppercase tracking-widest border border-white/5">
                             TON
                         </div>
                     </div>
                     
-                    <div className="mb-6">
-                        <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2">{label}</p>
-                        <h3 className="text-4xl font-black tracking-tighter text-on-background">
+                    <div className="mb-4 md:mb-6">
+                        <p className="text-[10px] md:text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1">{label}</p>
+                        <h3 className="text-2xl md:text-4xl font-black tracking-tighter text-on-background">
                             {new Intl.NumberFormat('id-ID').format(val)}
                         </h3>
                     </div>
 
                     <div className="mt-auto flex items-center gap-2">
-                        <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg ${isNegative ? 'bg-error-container/10' : 'bg-secondary/10'} ${trendColor}`}>
-                            <span className="material-symbols-outlined text-base font-bold">{trendIcon}</span>
-                            <span className="text-xs font-black tracking-tight">{isNegative ? '-' : '+'}{absVal.toFixed(1)}%</span>
+                        <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-lg ${isNegative ? 'bg-error-container/10' : 'bg-secondary/10'} ${trendColor}`}>
+                            <span className="material-symbols-outlined text-xs md:text-sm font-bold">{trendIcon}</span>
+                            <span className="text-[10px] font-black">{isNegative ? '-' : '+'}{absVal.toFixed(1)}%</span>
                         </div>
-                        <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-tight opacity-60">vs thn lalu</span>
+                        <span className="text-[8px] md:text-[9px] font-bold text-on-surface-variant uppercase opacity-50">vs thn lalu</span>
                     </div>
                 </div>
             );
@@ -631,8 +608,8 @@
 
         const LegendItem = ({ color, label }) => (
             <div className="flex items-center gap-2">
-                <div className={`w-2.5 h-1 rounded-full ${color}`}></div>
-                <span className="text-[9px] font-bold text-on-surface-variant uppercase tracking-wider">{label}</span>
+                <div className={`w-2 h-0.5 md:w-2.5 md:h-1 rounded-full ${color}`}></div>
+                <span className="text-[8px] md:text-[9px] font-bold text-on-surface-variant uppercase tracking-wider">{label}</span>
             </div>
         );
 
