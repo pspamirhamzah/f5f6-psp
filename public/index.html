@@ -11,7 +11,7 @@
     <meta property="og:image" content="https://raw.githubusercontent.com/pspamirhamzah/f5f6-psp/main/public/thumbnail.png">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://github.com/pspamirhamzah/f5f6-psp">  
-
+    
     <!-- Scripts & Frameworks -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -86,6 +86,12 @@
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ2YnRxdGxlc2h3YnJoZHdrZ2ZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxMTI2NzcsImV4cCI6MjA5MTY4ODY3N30.dwd9WxTaEwYIAmTZJh7xT2qC3i0G4yU4lXy0OWHfaj8';
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+        const KeyIcon = ({ label, active }) => (
+            <div className={`w-8 h-8 rounded-lg border flex items-center justify-center text-[11px] font-black transition-all duration-300 flex-shrink-0 ${active ? 'bg-primary/20 border-primary text-primary shadow-[0_0_15px_rgba(133,173,255,0.3)]' : 'bg-white/5 border-white/10 text-[#aaaab3]'}`}>
+                {label}
+            </div>
+        );
+
         const App = () => {
             const [activeTab, setActiveTab] = useState('F5');
             const [isCollapsed, setIsCollapsed] = useState(false);
@@ -101,44 +107,66 @@
             const [selectedProduk, setSelectedProduk] = useState('All');
 
             useEffect(() => {
-                const fetchData = async () => {
+                const fetchParallel = async () => {
                     setIsLoading(true);
-                    let gatheredData = [];
-                    let from = 0;
-                    let hasMore = true;
-
+                    setLoadProgress(5); // Start progress
+                    
                     try {
-                        while (hasMore) {
-                            const { data, error: sbError, count } = await supabaseClient
-                                .from('F5F6')
-                                .select('*', { count: 'exact' })
-                                .range(from, from + 999);
+                        // 1. Get total count first
+                        const { count, error: countError } = await supabaseClient
+                            .from('F5F6')
+                            .select('*', { count: 'exact', head: true });
 
-                            if (sbError) throw sbError;
-                            gatheredData = [...gatheredData, ...data];
-                            
-                            if (count) {
-                                const progress = Math.min(Math.round((gatheredData.length / count) * 100), 100);
-                                setLoadProgress(progress);
-                            }
-
-                            if (data.length < 1000) hasMore = false;
-                            else from += 1000;
+                        if (countError) throw countError;
+                        if (!count) {
+                            setIsLoading(false);
+                            return;
                         }
-                        setAllData(gatheredData);
+
+                        // 2. Setup parallel requests (1000 records per chunk)
+                        const chunkSize = 1000;
+                        const totalChunks = Math.ceil(count / chunkSize);
+                        const promises = [];
+
+                        // Optimizing columns to reduce payload size
+                        const columns = 'tipe_dokumen,tahun,provinsi,kabupaten,distributor,produk,penebusan,penyaluran,stok_awal,stok_akhir,bulan';
+
+                        let completedChunks = 0;
+
+                        for (let i = 0; i < totalChunks; i++) {
+                            const promise = supabaseClient
+                                .from('F5F6')
+                                .select(columns)
+                                .range(i * chunkSize, (i * chunkSize) + (chunkSize - 1))
+                                .then(result => {
+                                    completedChunks++;
+                                    // Update progress based on completed chunks
+                                    const progress = Math.min(Math.round((completedChunks / totalChunks) * 100), 100);
+                                    setLoadProgress(progress);
+                                    return result.data;
+                                });
+                            promises.push(promise);
+                        }
+
+                        // 3. Execute all requests in parallel
+                        const results = await Promise.all(promises);
+                        const combinedData = results.flat();
+
+                        setAllData(combinedData);
                         
-                        if (gatheredData.length > 0) {
-                            const years = [...new Set(gatheredData.map(d => String(d.tahun)))].sort((a,b) => b-a);
+                        if (combinedData.length > 0) {
+                            const years = [...new Set(combinedData.map(d => String(d.tahun)))].sort((a,b) => b-a);
                             setSelectedTahun(years[0]);
                         }
                         
-                        setTimeout(() => setIsLoading(false), 500);
+                        setTimeout(() => setIsLoading(false), 300);
                     } catch (err) {
-                        console.error("Fetch error:", err);
+                        console.error("Critical Fetch Error:", err);
                         setIsLoading(false);
                     }
                 };
-                fetchData();
+
+                fetchParallel();
             }, []);
 
             const parseNum = (val) => parseFloat(val) || 0;
@@ -231,7 +259,6 @@
                 return Object.values(months).sort((a,b) => a.b - b.b);
             }, [filteredData]);
 
-            // DYNAMIC GROUPING LOGIC
             const drillDownGroup = useMemo(() => {
                 let key = 'provinsi';
                 let label = 'Provinsi';
@@ -307,7 +334,6 @@
                 }).sort((a,b) => b.pnl - a.pnl);
             }, [filteredData, drillDownGroup]);
 
-            // HELPER TO RENDER RANK BADGE
             const RankIndicator = ({ index }) => {
                 if (index === 0) return <span className="material-symbols-outlined text-[#FFD700] text-xl select-none" style={{fontVariationSettings: "'FILL' 1"}}>workspace_premium</span>;
                 if (index === 1) return <span className="material-symbols-outlined text-[#C0C0C0] text-xl select-none" style={{fontVariationSettings: "'FILL' 1"}}>workspace_premium</span>;
@@ -356,7 +382,7 @@
                         <nav className="flex-1 space-y-2">
                             {['F5', 'F6'].map(tab => (
                                 <button key={tab} onClick={() => {setActiveTab(tab); setSelectedProvinsi('All'); setSelectedKabupaten('All');}} className={`w-full flex items-center rounded-xl bezier-transition ${isCollapsed ? 'justify-center p-3' : 'px-4 py-3 gap-3'} ${activeTab === tab ? 'bg-[#1d1f27] text-primary border-r-2 border-primary shadow-lg shadow-black/20' : 'text-[#aaaab3] hover:text-white hover:bg-white/5'}`}>
-                                    <span className="material-symbols-outlined flex-shrink-0">{tab === 'F5' ? 'description' : 'assessment'}</span>
+                                    <KeyIcon label={tab} active={activeTab === tab} />
                                     {!isCollapsed && <span className="font-semibold text-sm">Laporan {tab}</span>}
                                 </button>
                             ))}
@@ -483,7 +509,9 @@
                                         <h2 className="text-lg font-bold text-on-surface uppercase tracking-tight">Rincian Penyaluran</h2>
                                         <p className="text-[10px] text-label-dim font-bold uppercase mt-1 tracking-widest">Berdasarkan Alokasi Terbesar</p>
                                     </div>
-                                    <span className="text-[10px] font-bold text-primary uppercase bg-primary/10 px-3 py-1 rounded-full">{tableData.length} Records</span>
+                                    <span className="text-[10px] font-bold text-primary uppercase bg-primary/10 px-3 py-1 rounded-full whitespace-nowrap">
+                                        {tableData.length} {drillDownGroup.label}
+                                    </span>
                                 </div>
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-left">
