@@ -312,7 +312,7 @@
                                 <span className="material-symbols-outlined text-[#002c66] text-2xl" style={{fontVariationSettings: "'FILL' 1"}}>database</span>
                             </div>
                             <div className="text-center space-y-6 px-6">
-                              <h className="text-sm font-normal text-on-background/80">Iwak Sepat Iwak Gabus <br />Makin Cepat Makin Bagus!</h>
+                                <h1 className="text-sm font-normal text-on-background/80 leading-relaxed">Iwak Sepat Iwak Gabus <br />Makin Cepat Makin Bagus!</h1>
                                 <div className="w-64 h-1 bg-white/5 rounded-full overflow-hidden mx-auto">
                                     <div className="h-full bg-primary transition-all duration-700 ease-in-out" style={{ width: `${loadProgress}%` }}></div>
                                 </div>
@@ -380,7 +380,7 @@
                         </header>
 
                         <div className="flex-1 overflow-y-auto p-4 lg:p-8 custom-scrollbar">
-                            {/* Filter Section - Mobile Optimized Grid */}
+                            {/* Filter Section */}
                             <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
                                 <FilterSelect label="Tahun" value={selectedTahun} onChange={setSelectedTahun} options={filterOptions.tahun} showAll />
                                 <FilterSelect label="Provinsi" value={selectedProvinsi} onChange={setSelectedProvinsi} options={filterOptions.provinsi} showAll />
@@ -388,7 +388,7 @@
                                 <FilterSelect label="Produk" value={selectedProduk} onChange={setSelectedProduk} options={filterOptions.produk} showAll />
                             </section>
 
-                            {/* KPI Cards - Grid stacking */}
+                            {/* KPI Cards */}
                             <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
                                 <KPICard label="Stok Awal" val={stats.sAwal} icon="inventory_2" color="text-primary" compareVal={stats.yoy.sAwal} />
                                 <KPICard label="Penebusan" val={stats.pnb} icon="payments" color="text-primary" compareVal={stats.yoy.pnb} />
@@ -396,7 +396,7 @@
                                 <KPICard label="Stok Akhir" val={stats.sAkhir} icon="warehouse" color="text-tertiary" compareVal={stats.yoy.sAkhir} />
                             </section>
 
-                            {/* Main Visuals - Responsive Column Spans */}
+                            {/* Main Visuals */}
                             <section className="grid grid-cols-12 gap-4 md:gap-8 mb-6 md:mb-8">
                                 <div className="col-span-12 lg:col-span-8 glass-card p-4 md:p-8 rounded-2xl md:rounded-3xl flex flex-col min-h-[350px] md:min-h-[460px]">
                                     <div className="flex flex-col sm:flex-row justify-between items-start mb-6 md:mb-10 gap-4">
@@ -454,9 +454,12 @@
                                     </div>
                                 </div>
 
+                                {/* Ratio Efectivitas Card */}
                                 <div className="col-span-12 lg:col-span-4 glass-card p-4 md:p-8 rounded-2xl md:rounded-3xl flex flex-col min-h-[350px] md:min-h-[460px]">
-                                    <h2 className="text-base md:text-lg font-bold text-on-surface uppercase tracking-tight">Ratio Efectivitas</h2>
+                                    <div className="mb-6 md:mb-10">
+                                        <h2 className="text-base md:text-lg font-bold text-on-surface uppercase tracking-tight">Ratio Efectivitas</h2>
                                         <p className="text-[9px] md:text-[10px] text-label-dim font-bold uppercase mt-1 tracking-widest">Berdasarkan Alokasi Terbesar</p>
+                                    </div>
                                     <div className="flex-1 space-y-5 overflow-y-auto pr-2 custom-scrollbar">
                                         {comparisonData.map((d, i) => (
                                             <div key={i} className="space-y-2">
@@ -485,7 +488,7 @@
                                 </div>
                             </section>
 
-                            {/* Table Section - Horizontal scroll for mobile */}
+                            {/* Table Section */}
                             <section className="glass-card rounded-2xl md:rounded-3xl overflow-hidden mb-12">
                                 <div className="p-4 md:p-8 flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-white/5 bg-white/[0.01] gap-4">
                                     <div>
@@ -606,7 +609,7 @@
             );
         };
 
-        const LegendItem = ({ color, label }) => (
+            const LegendItem = ({ color, label }) => (
             <div className="flex items-center gap-2">
                 <div className={`w-2 h-0.5 md:w-2.5 md:h-1 rounded-full ${color}`}></div>
                 <span className="text-[8px] md:text-[9px] font-bold text-on-surface-variant uppercase tracking-wider">{label}</span>
