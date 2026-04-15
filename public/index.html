@@ -139,7 +139,6 @@
                         const chunkSize = 1000;
                         const totalChunks = Math.ceil(count / chunkSize);
                         const promises = [];
-                        // Diubah: Menambahkan kecamatan ke dalam kolom yang difetch
                         const columns = 'tipe_dokumen,tahun,provinsi,kabupaten,kecamatan,distributor,produk,penebusan,penyaluran,stok_awal,stok_akhir,bulan';
 
                         let completedChunks = 0;
@@ -175,7 +174,12 @@
             }, []);
 
             const parseNum = (val) => parseFloat(val) || 0;
-            const formatNumber = (num) => new Intl.NumberFormat('id-ID').format(Math.round(num));
+            
+            // Perubahan: Menambahkan minimumFractionDigits agar selalu muncul 2 desimal dengan koma
+            const formatNumber = (num) => new Intl.NumberFormat('id-ID', { 
+                minimumFractionDigits: 2, 
+                maximumFractionDigits: 2 
+            }).format(num);
 
             const filterOptions = useMemo(() => {
                 const data = allData.filter(r => r.tipe_dokumen === activeTab);
@@ -210,7 +214,6 @@
                     data.forEach(row => {
                         pnb += parseNum(row.penebusan);
                         pnl += parseNum(row.penyaluran);
-                        // Diubah: Memasukkan kecamatan dalam key entitas untuk menghindari duplikasi saat F6
                         const key = `${row.provinsi}_${row.kabupaten}_${row.kecamatan || ''}_${row.distributor}_${row.produk}`;
                         const b = parseInt(row.bulan) || 0;
                         if (!entitas[key]) {
@@ -242,7 +245,8 @@
 
                 return {
                     ...current,
-                    ratio: current.pnb > 0 ? (current.pnl/current.pnb).toFixed(2) : "0.00",
+                    // Perubahan: Memformat rasio dengan locale ID agar desimal menggunakan koma
+                    ratio: current.pnb > 0 ? new Intl.NumberFormat('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(current.pnl/current.pnb) : "0,00",
                     yoy: {
                         sAwal: getGrowth(current.sAwal, last.sAwal),
                         pnb: getGrowth(current.pnb, last.pnb),
@@ -273,7 +277,6 @@
                 return 'rgba(255,255,255,0.04)';
             }, [selectedProduk]);
 
-            // Diubah: Menyesuaikan drillDown berdasarkan activeTab
             const drillDownGroup = useMemo(() => {
                 let key = 'provinsi';
                 let label = 'Provinsi';
@@ -311,7 +314,6 @@
                     const g = groups[groupName];
                     g.pnb += parseNum(row.penebusan);
                     g.pnl += parseNum(row.penyaluran);
-                    // Diubah: Memasukkan kecamatan dalam key entitas
                     const entityKey = `${row.provinsi}_${row.kabupaten}_${row.kecamatan || ''}_${row.distributor}_${row.produk}`;
                     const b = parseInt(row.bulan) || 0;
                     if (!g.entities[entityKey]) {
@@ -446,19 +448,15 @@
                                             <ResponsiveContainer width="100%" height="100%">
                                                 <ComposedChart data={chartData} onMouseMove={(s) => s.activeTooltipIndex !== undefined && setActiveIndex(s.activeTooltipIndex)} onMouseLeave={() => setActiveIndex(null)}>
                                                     <defs>
-                                                        {/* Gradasi Putih untuk Highlight */}
                                                         <linearGradient id="activeBarGrad" x1="0" y1="0" x2="0" y2="1">
                                                             <stop offset="0%" stopColor="#fff" stopOpacity={0.3}/><stop offset="100%" stopColor="#fff" stopOpacity={0.1}/>
                                                         </linearGradient>
-                                                        {/* Gradasi Emas ke Biru (Tanpa Filter Produk) */}
                                                         <linearGradient id="gradAll" x1="0" y1="0" x2="0" y2="1">
                                                             <stop offset="0%" stopColor="#FFD700" stopOpacity={0.2}/><stop offset="100%" stopColor="#85adff" stopOpacity={0.1}/>
                                                         </linearGradient>
-                                                        {/* Gradasi Emas (Urea) - Mengikuti warna Rank 1 */}
                                                         <linearGradient id="gradUrea" x1="0" y1="0" x2="0" y2="1">
                                                             <stop offset="0%" stopColor="#FFD700" stopOpacity={0.25}/><stop offset="100%" stopColor="#FFD700" stopOpacity={0.05}/>
                                                         </linearGradient>
-                                                        {/* Gradasi Biru (NPK) */}
                                                         <linearGradient id="gradNpk" x1="0" y1="0" x2="0" y2="1">
                                                             <stop offset="0%" stopColor="#85adff" stopOpacity={0.25}/><stop offset="100%" stopColor="#85adff" stopOpacity={0.05}/>
                                                         </linearGradient>
@@ -509,7 +507,10 @@
                                                         <RankIndicator index={i} />
                                                         <span className="text-[11px] md:text-xs font-bold uppercase text-on-surface-variant truncate">{d.name}</span>
                                                     </div>
-                                                    <span className="text-primary text-[10px] font-black shrink-0">{((d.pnl/d.pnb)*100 || 0).toFixed(0)}%</span>
+                                                    {/* Perubahan: Memformat persentase dengan 2 desimal dan koma */}
+                                                    <span className="text-primary text-[10px] font-black shrink-0">
+                                                        {new Intl.NumberFormat('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format((d.pnl/d.pnb)*100 || 0)}%
+                                                    </span>
                                                 </div>
                                             </div>
                                         ))}
@@ -519,8 +520,8 @@
                                             <p className="text-[8px] md:text-[9px] text-on-surface-variant font-bold uppercase tracking-widest">Ratio Rata-rata</p>
                                             <p className="text-xl md:text-2xl font-black text-primary">{stats.ratio}</p>
                                         </div>
-                                        <div className={`px-4 py-2 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest ${parseFloat(stats.ratio) >= 0.8 ? 'bg-secondary/10 text-secondary' : 'bg-tertiary/10 text-tertiary'}`}>
-                                            {parseFloat(stats.ratio) >= 0.8 ? 'Optimal' : 'Monitoring'}
+                                        <div className={`px-4 py-2 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest ${parseFloat(stats.ratio.replace(',', '.')) >= 0.8 ? 'bg-secondary/10 text-secondary' : 'bg-tertiary/10 text-tertiary'}`}>
+                                            {parseFloat(stats.ratio.replace(',', '.')) >= 0.8 ? 'Optimal' : 'Monitoring'}
                                         </div>
                                     </div>
                                 </div>
@@ -573,7 +574,13 @@
                         <p className="text-[11px] md:text-[13px] font-black text-primary uppercase tracking-widest mb-1">{label}</p>
                         <div className="space-y-1">
                             {payload.map((p, idx) => (
-                                <div key={idx} className="flex justify-between gap-6 items-center"><span className="text-[8px] font-bold text-on-surface-variant uppercase">{p.name}</span><span className="text-[10px] font-black text-on-surface">{new Intl.NumberFormat('id-ID').format(p.value)}</span></div>
+                                <div key={idx} className="flex justify-between gap-6 items-center">
+                                    <span className="text-[8px] font-bold text-on-surface-variant uppercase">{p.name}</span>
+                                    {/* Perubahan: Tooltip menggunakan format 2 desimal dan koma */}
+                                    <span className="text-[10px] font-black text-on-surface">
+                                        {new Intl.NumberFormat('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(p.value)}
+                                    </span>
+                                </div>
                             ))}
                         </div>
                     </div>
@@ -614,7 +621,8 @@
                     
                     <div className="mb-4 md:mb-6 relative z-10 flex items-baseline gap-2 overflow-hidden">
                         <h3 className="text-xl md:text-3xl font-black tracking-tighter text-on-background whitespace-nowrap">
-                            {new Intl.NumberFormat('id-ID').format(val)}
+                            {/* Perubahan: Menggunakan formatNumber yang sudah mendukung 2 desimal dengan koma */}
+                            {new Intl.NumberFormat('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val)}
                         </h3>
                         <span className="text-xl md:text-3xl font-light text-label-dim uppercase tracking-tighter lg:scale-x-90 inline-block origin-left whitespace-nowrap">TON</span>
                     </div>
@@ -622,7 +630,8 @@
                     <div className="mt-auto flex items-center gap-2 relative z-10">
                         <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-lg ${isNegative ? 'bg-error-container/10' : 'bg-secondary/10'} ${trendColor}`}>
                             <span className="material-symbols-outlined text-xs md:text-sm font-bold">{trendIcon}</span>
-                            <span className="text-[10px] font-black">{isNegative ? '-' : '+'}{absVal.toFixed(1)}%</span>
+                            {/* Perubahan: Growth menggunakan format 2 desimal dengan koma */}
+                            <span className="text-[10px] font-black">{isNegative ? '-' : '+'}{new Intl.NumberFormat('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(absVal)}%</span>
                         </div>
                         <span className="text-[8px] md:text-[9px] font-medium text-on-surface-variant uppercase opacity-50 whitespace-nowrap">vs thn lalu</span>
                     </div>
