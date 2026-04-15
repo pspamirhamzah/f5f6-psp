@@ -151,6 +151,10 @@
                                 const promise = supabaseClient
                                     .from('F5F6')
                                     .select(columns)
+                                    // PERBAIKAN DI SINI: Menambahkan .order() agar paginasi konsisten
+                                    // Pastikan 'id' adalah kolom primary key/unik di tabel Anda.
+                                    // Jika tidak ada 'id', ganti dengan kolom unik lain misalnya 'no_dokumen'
+                                    .order('id', { ascending: true }) 
                                     .range(j * chunkSize, (j * chunkSize) + (chunkSize - 1))
                                     .then(result => {
                                         completedChunks++;
@@ -426,7 +430,6 @@
 
                         <div className="flex-1 overflow-y-auto p-4 lg:p-8 custom-scrollbar">
                             <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
-                                {/* Perubahan: showAll dihapus dari FilterSelect Tahun agar "Semua Tahun" hilang */}
                                 <FilterSelect label="Tahun" value={selectedTahun} onChange={setSelectedTahun} options={filterOptions.tahun} />
                                 <FilterSelect label="Provinsi" value={selectedProvinsi} onChange={setSelectedProvinsi} options={filterOptions.provinsi} showAll />
                                 <FilterSelect label="Kabupaten" value={selectedKabupaten} onChange={setSelectedKabupaten} options={kabupatenOptions} showAll />
