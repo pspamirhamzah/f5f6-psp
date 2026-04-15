@@ -142,18 +142,14 @@
 
                         let combinedData = [];
                         let completedChunks = 0;
-                        const concurrencyLimit = 5; // Membatasi maksimal 5 request bersamaan agar browser/server tidak overload
+                        const concurrencyLimit = 5;
 
-                        // Fetch dengan sistem Batching (kelompok)
                         for (let i = 0; i < totalChunks; i += concurrencyLimit) {
                             const chunkPromises = [];
                             for (let j = i; j < i + concurrencyLimit && j < totalChunks; j++) {
                                 const promise = supabaseClient
                                     .from('F5F6')
                                     .select(columns)
-                                    // PERBAIKAN DI SINI: Menambahkan .order() agar paginasi konsisten
-                                    // Pastikan 'id' adalah kolom primary key/unik di tabel Anda.
-                                    // Jika tidak ada 'id', ganti dengan kolom unik lain misalnya 'no_dokumen'
                                     .order('id', { ascending: true }) 
                                     .range(j * chunkSize, (j * chunkSize) + (chunkSize - 1))
                                     .then(result => {
@@ -165,7 +161,6 @@
                                 chunkPromises.push(promise);
                             }
                             
-                            // Tunggu 5 batch ini selesai dulu, baru lanjut request ke batch berikutnya
                             const results = await Promise.all(chunkPromises);
                             combinedData = combinedData.concat(results.flat());
                         }
@@ -187,11 +182,13 @@
 
             const parseNum = (val) => parseFloat(val) || 0;
             
-            // Perubahan: Menambahkan minimumFractionDigits agar selalu muncul 2 desimal dengan koma
-            const formatNumber = (num) => new Intl.NumberFormat('id-ID', { 
-                minimumFractionDigits: 2, 
-                maximumFractionDigits: 2 
-            }).format(num);
+            // PERUBAHAN: Kembali menggunakan koma (,) sebagai pemisah desimal sesuai instruksi terbaru
+            const formatNumber = (num) => {
+                return new Intl.NumberFormat('id-ID', { 
+                    minimumFractionDigits: 2, 
+                    maximumFractionDigits: 2 
+                }).format(num);
+            };
 
             const filterOptions = useMemo(() => {
                 const data = allData.filter(r => r.tipe_dokumen === activeTab);
@@ -257,8 +254,8 @@
 
                 return {
                     ...current,
-                    // Perubahan: Memformat rasio dengan locale ID agar desimal menggunakan koma
-                    ratio: current.pnb > 0 ? new Intl.NumberFormat('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(current.pnl/current.pnb) : "0,00",
+                    // Menggunakan koma (,) sebagai default jika 0
+                    ratio: current.pnb > 0 ? formatNumber(current.pnl/current.pnb) : "0,00",
                     yoy: {
                         sAwal: getGrowth(current.sAwal, last.sAwal),
                         pnb: getGrowth(current.pnb, last.pnb),
@@ -358,7 +355,7 @@
                                 <span className="material-symbols-outlined text-[#002c66] text-2xl" style={{fontVariationSettings: "'FILL' 1"}}>database</span>
                             </div>
                             <div className="text-center space-y-6 px-6">
-                                <h1 className="text-sm font-normal text-on-background/80 leading-relaxed">Iwak Sepat Iwak Gabus <br />Makin Cepat Makin Bagus!</h1>
+                                <h1 className="text-sm font-normal text-on-background/80 leading-relaxed">Menarik Data Terbaru...</h1>
                                 <div className="w-64 h-1 bg-white/5 rounded-full overflow-hidden mx-auto">
                                     <div className="h-full bg-primary transition-all duration-700 ease-in-out" style={{ width: `${loadProgress}%` }}></div>
                                 </div>
@@ -437,10 +434,10 @@
                             </section>
 
                             <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
-                                <KPICard label="Stok Awal" val={stats.sAwal} icon="inventory_2" iconColor="text-[#a8c7ff]" compareVal={stats.yoy.sAwal} />
-                                <KPICard label="Penebusan" val={stats.pnb} icon="payments" iconColor="text-indigo-400" compareVal={stats.yoy.pnb} />
-                                <KPICard label="Penyaluran" val={stats.pnl} icon="local_shipping" iconColor="text-secondary" compareVal={stats.yoy.pnl} />
-                                <KPICard label="Stok Akhir" val={stats.sAkhir} icon="warehouse" iconColor="text-tertiary" compareVal={stats.yoy.sAkhir} />
+                                <KPICard label="Stok Awal" val={stats.sAwal} icon="inventory_2" iconColor="text-[#a8c7ff]" compareVal={stats.yoy.sAwal} format={formatNumber} />
+                                <KPICard label="Penebusan" val={stats.pnb} icon="payments" iconColor="text-indigo-400" compareVal={stats.yoy.pnb} format={formatNumber} />
+                                <KPICard label="Penyaluran" val={stats.pnl} icon="local_shipping" iconColor="text-secondary" compareVal={stats.yoy.pnl} format={formatNumber} />
+                                <KPICard label="Stok Akhir" val={stats.sAkhir} icon="warehouse" iconColor="text-tertiary" compareVal={stats.yoy.sAkhir} format={formatNumber} />
                             </section>
 
                             <section className="grid grid-cols-12 gap-4 md:gap-8 mb-6 md:mb-8">
@@ -483,7 +480,7 @@
                                                         interval={isMobile ? 1 : 0}
                                                     />
                                                     <YAxis hide />
-                                                    <Tooltip cursor={false} content={<CustomTooltip />} />
+                                                    <Tooltip cursor={false} content={<CustomTooltip format={formatNumber} />} />
                                                     <Bar dataKey="Penyaluran" radius={[6, 6, 0, 0]} maxBarSize={35}>
                                                         {chartData.map((e, i) => (
                                                             <Cell 
@@ -519,9 +516,8 @@
                                                         <RankIndicator index={i} />
                                                         <span className="text-[11px] md:text-xs font-bold uppercase text-on-surface-variant truncate">{d.name}</span>
                                                     </div>
-                                                    {/* Perubahan: Memformat persentase dengan 2 desimal dan koma */}
                                                     <span className="text-primary text-[10px] font-black shrink-0">
-                                                        {new Intl.NumberFormat('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format((d.pnl/d.pnb)*100 || 0)}%
+                                                        {formatNumber((d.pnl/d.pnb)*100 || 0)}%
                                                     </span>
                                                 </div>
                                             </div>
@@ -579,7 +575,7 @@
             );
         };
 
-        const CustomTooltip = ({ active, payload, label }) => {
+        const CustomTooltip = ({ active, payload, label, format }) => {
             if (active && payload && payload.length) {
                 return (
                     <div className="glass-card px-3 py-2 rounded-xl border border-primary/20 shadow-2xl">
@@ -588,9 +584,8 @@
                             {payload.map((p, idx) => (
                                 <div key={idx} className="flex justify-between gap-6 items-center">
                                     <span className="text-[8px] font-bold text-on-surface-variant uppercase">{p.name}</span>
-                                    {/* Perubahan: Tooltip menggunakan format 2 desimal dan koma */}
                                     <span className="text-[10px] font-black text-on-surface">
-                                        {new Intl.NumberFormat('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(p.value)}
+                                        {format(p.value)}
                                     </span>
                                 </div>
                             ))}
@@ -614,7 +609,7 @@
             </div>
         );
 
-        const KPICard = ({ label, val, icon, iconColor, compareVal }) => {
+        const KPICard = ({ label, val, icon, iconColor, compareVal, format }) => {
             const isNegative = compareVal < 0;
             const absVal = Math.abs(compareVal);
             const trendColor = isNegative ? 'text-error-container' : 'text-secondary';
@@ -633,8 +628,7 @@
                     
                     <div className="mb-4 md:mb-6 relative z-10 flex items-baseline gap-2 overflow-hidden">
                         <h3 className="text-xl md:text-3xl font-black tracking-tighter text-on-background whitespace-nowrap">
-                            {/* Perubahan: Menggunakan formatNumber yang sudah mendukung 2 desimal dengan koma */}
-                            {new Intl.NumberFormat('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val)}
+                            {format(val)}
                         </h3>
                         <span className="text-xl md:text-3xl font-light text-label-dim uppercase tracking-tighter lg:scale-x-90 inline-block origin-left whitespace-nowrap">TON</span>
                     </div>
@@ -642,8 +636,7 @@
                     <div className="mt-auto flex items-center gap-2 relative z-10">
                         <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-lg ${isNegative ? 'bg-error-container/10' : 'bg-secondary/10'} ${trendColor}`}>
                             <span className="material-symbols-outlined text-xs md:text-sm font-bold">{trendIcon}</span>
-                            {/* Perubahan: Growth menggunakan format 2 desimal dengan koma */}
-                            <span className="text-[10px] font-black">{isNegative ? '-' : '+'}{new Intl.NumberFormat('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(absVal)}%</span>
+                            <span className="text-[10px] font-black">{isNegative ? '-' : '+'}{format(absVal)}%</span>
                         </div>
                         <span className="text-[8px] md:text-[9px] font-medium text-on-surface-variant uppercase opacity-50 whitespace-nowrap">vs thn lalu</span>
                     </div>
