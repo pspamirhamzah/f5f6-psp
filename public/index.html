@@ -139,7 +139,8 @@
                         const chunkSize = 1000;
                         const totalChunks = Math.ceil(count / chunkSize);
                         const promises = [];
-                        const columns = 'tipe_dokumen,tahun,provinsi,kabupaten,distributor,produk,penebusan,penyaluran,stok_awal,stok_akhir,bulan';
+                        // Diubah: Menambahkan kecamatan ke dalam kolom yang difetch
+                        const columns = 'tipe_dokumen,tahun,provinsi,kabupaten,kecamatan,distributor,produk,penebusan,penyaluran,stok_awal,stok_akhir,bulan';
 
                         let completedChunks = 0;
                         for (let i = 0; i < totalChunks; i++) {
@@ -209,7 +210,8 @@
                     data.forEach(row => {
                         pnb += parseNum(row.penebusan);
                         pnl += parseNum(row.penyaluran);
-                        const key = `${row.provinsi}_${row.kabupaten}_${row.distributor}_${row.produk}`;
+                        // Diubah: Memasukkan kecamatan dalam key entitas untuk menghindari duplikasi saat F6
+                        const key = `${row.provinsi}_${row.kabupaten}_${row.kecamatan || ''}_${row.distributor}_${row.produk}`;
                         const b = parseInt(row.bulan) || 0;
                         if (!entitas[key]) {
                             entitas[key] = { minB: b, maxB: b, sA: parseNum(row.stok_awal), sE: parseNum(row.stok_akhir) };
@@ -263,7 +265,6 @@
                 return Object.values(months).sort((a,b) => a.b - b.b);
             }, [filteredData]);
 
-            // Determinisasi warna gradasi batang berdasarkan filter produk
             const currentBarGradient = useMemo(() => {
                 if (selectedProduk === 'All') return 'url(#gradAll)';
                 const p = selectedProduk.toUpperCase();
@@ -272,13 +273,22 @@
                 return 'rgba(255,255,255,0.04)';
             }, [selectedProduk]);
 
+            // Diubah: Menyesuaikan drillDown berdasarkan activeTab
             const drillDownGroup = useMemo(() => {
                 let key = 'provinsi';
                 let label = 'Provinsi';
                 if (selectedProvinsi !== 'All') { key = 'kabupaten'; label = 'Kabupaten'; }
-                if (selectedKabupaten !== 'All') { key = 'distributor'; label = 'Distributor'; }
+                if (selectedKabupaten !== 'All') { 
+                    if (activeTab === 'F6') {
+                        key = 'kecamatan'; 
+                        label = 'Kecamatan'; 
+                    } else {
+                        key = 'distributor'; 
+                        label = 'Distributor'; 
+                    }
+                }
                 return { key, label };
-            }, [selectedProvinsi, selectedKabupaten]);
+            }, [selectedProvinsi, selectedKabupaten, activeTab]);
 
             const comparisonData = useMemo(() => {
                 const groups = {};
@@ -301,7 +311,8 @@
                     const g = groups[groupName];
                     g.pnb += parseNum(row.penebusan);
                     g.pnl += parseNum(row.penyaluran);
-                    const entityKey = `${row.provinsi}_${row.kabupaten}_${row.distributor}_${row.produk}`;
+                    // Diubah: Memasukkan kecamatan dalam key entitas
+                    const entityKey = `${row.provinsi}_${row.kabupaten}_${row.kecamatan || ''}_${row.distributor}_${row.produk}`;
                     const b = parseInt(row.bulan) || 0;
                     if (!g.entities[entityKey]) {
                         g.entities[entityKey] = { minB: b, maxB: b, sA: parseNum(row.stok_awal), sE: parseNum(row.stok_akhir) };
@@ -362,7 +373,19 @@
                         </div>
                         <nav className="flex-1 space-y-2">
                             {['F5', 'F6'].map(tab => (
-                                <button key={tab} onClick={() => {setActiveTab(tab); setSelectedProvinsi('All'); setSelectedKabupaten('All'); setIsMobileOpen(false);}} className={`w-full flex items-center rounded-xl bezier-transition ${isCollapsed && !isMobileOpen ? 'justify-center p-3' : 'px-4 py-3 gap-3'} ${activeTab === tab ? 'bg-[#1d1f27] text-primary border-r-2 border-primary shadow-lg shadow-black/20' : 'text-[#aaaab3] hover:text-white hover:bg-white/5'}`}>
+                                <button key={tab} onClick={() => {
+                                    setActiveTab(tab); 
+                                    setSelectedProvinsi('All'); 
+                                    setSelectedKabupaten('All'); 
+                                    setIsMobileOpen(false);
+                                    if (allData.length > 0) {
+                                        const tabData = allData.filter(d => d.tipe_dokumen === tab);
+                                        if (tabData.length > 0) {
+                                            const years = [...new Set(tabData.map(d => String(d.tahun)))].sort((a,b) => b-a);
+                                            setSelectedTahun(years[0]);
+                                        }
+                                    }
+                                }} className={`w-full flex items-center rounded-xl bezier-transition ${isCollapsed && !isMobileOpen ? 'justify-center p-3' : 'px-4 py-3 gap-3'} ${activeTab === tab ? 'bg-[#1d1f27] text-primary border-r-2 border-primary shadow-lg shadow-black/20' : 'text-[#aaaab3] hover:text-white hover:bg-white/5'}`}>
                                     <KeyIcon label={tab} active={activeTab === tab} />
                                     {(!isCollapsed || isMobileOpen) && <span className="font-semibold text-sm">Laporan {tab}</span>}
                                 </button>
