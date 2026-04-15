@@ -138,26 +138,34 @@
 
                         const chunkSize = 1000;
                         const totalChunks = Math.ceil(count / chunkSize);
-                        const promises = [];
                         const columns = 'tipe_dokumen,tahun,provinsi,kabupaten,kecamatan,distributor,produk,penebusan,penyaluran,stok_awal,stok_akhir,bulan';
 
+                        let combinedData = [];
                         let completedChunks = 0;
-                        for (let i = 0; i < totalChunks; i++) {
-                            const promise = supabaseClient
-                                .from('F5F6')
-                                .select(columns)
-                                .range(i * chunkSize, (i * chunkSize) + (chunkSize - 1))
-                                .then(result => {
-                                    completedChunks++;
-                                    const progress = Math.min(Math.round((completedChunks / totalChunks) * 100), 100);
-                                    setLoadProgress(progress);
-                                    return result.data;
-                                });
-                            promises.push(promise);
+                        const concurrencyLimit = 5; // Membatasi maksimal 5 request bersamaan agar browser/server tidak overload
+
+                        // Fetch dengan sistem Batching (kelompok)
+                        for (let i = 0; i < totalChunks; i += concurrencyLimit) {
+                            const chunkPromises = [];
+                            for (let j = i; j < i + concurrencyLimit && j < totalChunks; j++) {
+                                const promise = supabaseClient
+                                    .from('F5F6')
+                                    .select(columns)
+                                    .range(j * chunkSize, (j * chunkSize) + (chunkSize - 1))
+                                    .then(result => {
+                                        completedChunks++;
+                                        const progress = Math.min(Math.round((completedChunks / totalChunks) * 100), 100);
+                                        setLoadProgress(progress);
+                                        return result.data || [];
+                                    });
+                                chunkPromises.push(promise);
+                            }
+                            
+                            // Tunggu 5 batch ini selesai dulu, baru lanjut request ke batch berikutnya
+                            const results = await Promise.all(chunkPromises);
+                            combinedData = combinedData.concat(results.flat());
                         }
 
-                        const results = await Promise.all(promises);
-                        const combinedData = results.flat();
                         setAllData(combinedData);
                         
                         if (combinedData.length > 0) {
@@ -418,7 +426,8 @@
 
                         <div className="flex-1 overflow-y-auto p-4 lg:p-8 custom-scrollbar">
                             <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
-                                <FilterSelect label="Tahun" value={selectedTahun} onChange={setSelectedTahun} options={filterOptions.tahun} showAll />
+                                {/* Perubahan: showAll dihapus dari FilterSelect Tahun agar "Semua Tahun" hilang */}
+                                <FilterSelect label="Tahun" value={selectedTahun} onChange={setSelectedTahun} options={filterOptions.tahun} />
                                 <FilterSelect label="Provinsi" value={selectedProvinsi} onChange={setSelectedProvinsi} options={filterOptions.provinsi} showAll />
                                 <FilterSelect label="Kabupaten" value={selectedKabupaten} onChange={setSelectedKabupaten} options={kabupatenOptions} showAll />
                                 <FilterSelect label="Produk" value={selectedProduk} onChange={setSelectedProduk} options={filterOptions.produk} showAll />
