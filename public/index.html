@@ -72,6 +72,15 @@
             50% { transform: translateX(5px); }
         }
         .animate-slide-hint { animation: slide-hint 1.5s infinite ease-in-out; }
+
+        /* Background Animasi Landing Page */
+        .bg-glow {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(100px);
+            z-index: 0;
+            animation: pulse-soft 6s infinite alternate;
+        }
         
         @media (max-width: 768px) {
             .recharts-responsive-container { min-height: 250px; }
@@ -100,6 +109,9 @@
         );
 
         const App = () => {
+            // STATE BARU: Untuk mengontrol apakah kita berada di Landing Page atau Dashboard
+            const [isLanding, setIsLanding] = useState(true);
+            
             const [activeTab, setActiveTab] = useState('F5');
             const [isCollapsed, setIsCollapsed] = useState(true);
             const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -121,7 +133,7 @@
                 return () => window.removeEventListener('resize', handleResize);
             }, []);
 
-            // PERUBAHAN: Mengembalikan format angka menggunakan koma (,) sebagai desimal standar id-ID
+            // Menggunakan format koma (,) untuk desimal sesuai standar id-ID
             const formatNumber = (num) => {
                 return new Intl.NumberFormat('id-ID', { 
                     minimumFractionDigits: 2, 
@@ -129,12 +141,12 @@
                 }).format(num);
             };
 
+            // DATA FETCHING BERJALAN DI BACKGROUND SAAT LANDING PAGE TAMPIL
             useEffect(() => {
                 const fetchData = async () => {
                     setIsLoading(true);
                     setLoadProgress(5);
 
-                    // PERUBAHAN: Cek Session Storage (Cache). Gunakan key baru agar cache lama yang tidak lengkap diabaikan
                     try {
                         const cachedData = sessionStorage.getItem('f5f6_database_cache_v2');
                         if (cachedData) {
@@ -145,7 +157,7 @@
                                 setSelectedTahun(years[0]);
                             }
                             setIsLoading(false);
-                            return; // Keluar, tidak perlu fetch ke Supabase lagi
+                            return; 
                         }
                     } catch (e) {
                         console.log("Cache tidak tersedia/penuh");
@@ -162,14 +174,13 @@
                             return;
                         }
 
-                        // PERBAIKAN PENTING: chunkSize MAKSIMAL 1000 agar tidak ada data yang terpotong oleh limit Supabase
                         const chunkSize = 1000; 
                         const totalChunks = Math.ceil(count / chunkSize);
                         const columns = 'tipe_dokumen,tahun,provinsi,kabupaten,kecamatan,distributor,produk,penebusan,penyaluran,stok_awal,stok_akhir,bulan';
 
                         let combinedData = [];
                         let completedChunks = 0;
-                        const concurrencyLimit = 10; // Tetap 10 agar request paralel berjalan cepat
+                        const concurrencyLimit = 10; 
 
                         for (let i = 0; i < totalChunks; i += concurrencyLimit) {
                             const chunkPromises = [];
@@ -194,7 +205,6 @@
 
                         setAllData(combinedData);
                         
-                        // Simpan ke Cache dengan key baru
                         try {
                             sessionStorage.setItem('f5f6_database_cache_v2', JSON.stringify(combinedData));
                         } catch(e) {
@@ -371,24 +381,67 @@
                 return <span className="text-[9px] md:text-[10px] font-bold text-label-dim w-5 text-center select-none">{index + 1}</span>;
             };
 
-            return (
-                <div className="flex h-screen overflow-hidden relative">
-                    {/* LOADING OVERLAY */}
-                    {isLoading && (
-                        <div className="fixed inset-0 z-[100] bg-[#0c0e14] flex flex-col items-center justify-center">
-                            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#85adff] to-[#6e9fff] flex items-center justify-center shadow-2xl shadow-primary/10 mb-10 animate-pulse-soft">
-                                <span className="material-symbols-outlined text-[#002c66] text-2xl" style={{fontVariationSettings: "'FILL' 1"}}>database</span>
+            // ==========================================
+            // RENDER: HALAMAN LANDING PAGE (HALAMAN PERTAMA)
+            // ==========================================
+            if (isLanding) {
+                return (
+                    <div className="flex h-screen w-full overflow-hidden bg-[#0a0c10] relative items-center justify-center">
+                        {/* Efek Latar Belakang Estetik */}
+                        <div className="bg-glow bg-primary/10 w-[300px] h-[300px] md:w-[500px] md:h-[500px] top-[-10%] left-[-10%]"></div>
+                        <div className="bg-glow bg-tertiary/10 w-[300px] h-[300px] md:w-[400px] md:h-[400px] bottom-[-10%] right-[-10%]" style={{animationDelay: '2s'}}></div>
+                        
+                        <div className="z-10 text-center px-6 max-w-4xl flex flex-col items-center">
+                            {/* Logo / Ikon */}
+                            <div className="w-20 h-20 md:w-24 md:h-24 rounded-3xl bg-gradient-to-br from-[#85adff] to-[#6e9fff] flex items-center justify-center shadow-[0_0_40px_rgba(133,173,255,0.3)] mb-8 md:mb-10 transform hover:scale-105 transition-transform duration-500">
+                                <span className="material-symbols-outlined text-[#002c66] text-4xl md:text-5xl" style={{fontVariationSettings: "'FILL' 1"}}>analytics</span>
                             </div>
-                            <div className="text-center space-y-6 px-6">
-                                <h1 className="text-sm font-normal text-on-background/80 leading-relaxed">SABAR YEE</h1>
-                                <div className="w-64 h-1 bg-white/5 rounded-full overflow-hidden mx-auto">
-                                    <div className="h-full bg-primary transition-all duration-700 ease-in-out" style={{ width: `${loadProgress}%` }}></div>
-                                </div>
-                                <p className="text-[14px] text-primary/80">Loading... {loadProgress}%</p>
+                            
+                            {/* Judul Utama */}
+                            <h1 className="text-3xl md:text-5xl lg:text-6xl font-black text-on-background tracking-tight mb-4 leading-tight">
+                                <span className="block text-xl md:text-3xl text-label-dim font-bold tracking-widest mb-2">DATABASE</span>
+                                <span className="block text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">PENEBUSAN & PENYALURAN</span>
+                                <span className="block mt-2">PUPUK SUBSIDI</span>
+                            </h1>
+                            <p className="text-sm md:text-xl text-label-dim font-medium tracking-widest uppercase mb-12 md:mb-16">
+                                PT Pupuk Sriwidjaja Palembang
+                            </p>
+
+                            {/* Area Aksi: Loading atau Tombol Masuk */}
+                            <div className="w-full max-w-md mx-auto h-20 flex items-center justify-center">
+                                {isLoading ? (
+                                    <div className="w-full space-y-4 animate-pulse-soft">
+                                        <div className="flex justify-between text-[10px] md:text-xs font-bold text-label-dim uppercase tracking-widest px-2">
+                                            <span>Menyiapkan Data Base...</span>
+                                            <span className="text-primary">{loadProgress}%</span>
+                                        </div>
+                                        <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden p-0.5">
+                                            <div className="h-full bg-gradient-to-r from-primary to-secondary rounded-full transition-all duration-300 ease-out" style={{ width: `${loadProgress}%` }}></div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <button 
+                                        onClick={() => setIsLanding(false)}
+                                        className="group relative px-8 py-4 bg-primary text-[#002c66] rounded-2xl font-black uppercase tracking-widest text-xs md:text-sm overflow-hidden shadow-[0_0_30px_rgba(133,173,255,0.2)] hover:shadow-[0_0_50px_rgba(133,173,255,0.4)] transition-all duration-500 hover:scale-105 active:scale-95"
+                                    >
+                                        <span className="relative z-10 flex items-center gap-3">
+                                            Buka Dashboard
+                                            <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+                                        </span>
+                                        <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-in-out z-0"></div>
+                                    </button>
+                                )}
                             </div>
                         </div>
-                    )}
+                    </div>
+                );
+            }
 
+            // ==========================================
+            // RENDER: HALAMAN DASHBOARD UTAMA
+            // ==========================================
+            return (
+                <div className="flex h-screen overflow-hidden relative">
                     {/* MOBILE OVERLAY */}
                     {isMobileOpen && (
                         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[55] lg:hidden" onClick={() => setIsMobileOpen(false)} />
