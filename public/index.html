@@ -121,10 +121,36 @@
                 return () => window.removeEventListener('resize', handleResize);
             }, []);
 
+            // PERUBAHAN: Mengembalikan format angka menggunakan koma (,) sebagai desimal standar id-ID
+            const formatNumber = (num) => {
+                return new Intl.NumberFormat('id-ID', { 
+                    minimumFractionDigits: 2, 
+                    maximumFractionDigits: 2 
+                }).format(num);
+            };
+
             useEffect(() => {
-                const fetchParallel = async () => {
+                const fetchData = async () => {
                     setIsLoading(true);
                     setLoadProgress(5);
+
+                    // PERUBAHAN: Cek Session Storage (Cache). Gunakan key baru agar cache lama yang tidak lengkap diabaikan
+                    try {
+                        const cachedData = sessionStorage.getItem('f5f6_database_cache_v2');
+                        if (cachedData) {
+                            const parsedData = JSON.parse(cachedData);
+                            setAllData(parsedData);
+                            if (parsedData.length > 0) {
+                                const years = [...new Set(parsedData.map(d => String(d.tahun)))].sort((a,b) => b-a);
+                                setSelectedTahun(years[0]);
+                            }
+                            setIsLoading(false);
+                            return; // Keluar, tidak perlu fetch ke Supabase lagi
+                        }
+                    } catch (e) {
+                        console.log("Cache tidak tersedia/penuh");
+                    }
+
                     try {
                         const { count, error: countError } = await supabaseClient
                             .from('F5F6')
@@ -136,13 +162,14 @@
                             return;
                         }
 
-                        const chunkSize = 1000;
+                        // PERBAIKAN PENTING: chunkSize MAKSIMAL 1000 agar tidak ada data yang terpotong oleh limit Supabase
+                        const chunkSize = 1000; 
                         const totalChunks = Math.ceil(count / chunkSize);
                         const columns = 'tipe_dokumen,tahun,provinsi,kabupaten,kecamatan,distributor,produk,penebusan,penyaluran,stok_awal,stok_akhir,bulan';
 
                         let combinedData = [];
                         let completedChunks = 0;
-                        const concurrencyLimit = 5;
+                        const concurrencyLimit = 10; // Tetap 10 agar request paralel berjalan cepat
 
                         for (let i = 0; i < totalChunks; i += concurrencyLimit) {
                             const chunkPromises = [];
@@ -167,6 +194,13 @@
 
                         setAllData(combinedData);
                         
+                        // Simpan ke Cache dengan key baru
+                        try {
+                            sessionStorage.setItem('f5f6_database_cache_v2', JSON.stringify(combinedData));
+                        } catch(e) {
+                            console.log("Data terlalu besar untuk di-cache");
+                        }
+                        
                         if (combinedData.length > 0) {
                             const years = [...new Set(combinedData.map(d => String(d.tahun)))].sort((a,b) => b-a);
                             setSelectedTahun(years[0]);
@@ -177,18 +211,10 @@
                         setIsLoading(false);
                     }
                 };
-                fetchParallel();
+                fetchData();
             }, []);
 
             const parseNum = (val) => parseFloat(val) || 0;
-            
-            // PERUBAHAN: Kembali menggunakan koma (,) sebagai pemisah desimal sesuai instruksi terbaru
-            const formatNumber = (num) => {
-                return new Intl.NumberFormat('id-ID', { 
-                    minimumFractionDigits: 2, 
-                    maximumFractionDigits: 2 
-                }).format(num);
-            };
 
             const filterOptions = useMemo(() => {
                 const data = allData.filter(r => r.tipe_dokumen === activeTab);
@@ -254,7 +280,6 @@
 
                 return {
                     ...current,
-                    // Menggunakan koma (,) sebagai default jika 0
                     ratio: current.pnb > 0 ? formatNumber(current.pnl/current.pnb) : "0,00",
                     yoy: {
                         sAwal: getGrowth(current.sAwal, last.sAwal),
