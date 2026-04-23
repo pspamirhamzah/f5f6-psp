@@ -161,7 +161,7 @@
 
                     try {
                         const { count, error: countError } = await supabaseClient
-                            .from('F5F6')
+                            .from('f5f6')
                             .select('*', { count: 'exact', head: true });
 
                         if (countError) throw countError;
@@ -182,7 +182,7 @@
                             const chunkPromises = [];
                             for (let j = i; j < i + concurrencyLimit && j < totalChunks; j++) {
                                 const promise = supabaseClient
-                                    .from('F5F6')
+                                    .from('f5f6')
                                     .select(columns)
                                     .order('id', { ascending: true }) 
                                     .range(j * chunkSize, (j * chunkSize) + (chunkSize - 1))
