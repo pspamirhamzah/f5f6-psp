@@ -269,10 +269,22 @@
                 };
 
                 const current = calculateMetrics(filteredData);
+                
+                let maxMonth = 0;
+                filteredData.forEach(row => {
+                    const b = parseInt(row.bulan);
+                    if (b > maxMonth) maxMonth = b;
+                });
+                if (maxMonth === 0) maxMonth = 12; // Fallback jika belum ada data
+
+                const monthNames = ["JAN", "FEB", "MAR", "APR", "MEI", "JUN", "JUL", "AGU", "SEP", "OKT", "NOV", "DES"];
+                const maxMonthName = monthNames[maxMonth - 1];
+
                 const lastYearValue = parseInt(selectedTahun) - 1;
                 const lastYearData = allData.filter(row => {
                     return row.tipe_dokumen === activeTab &&
                            String(row.tahun) === String(lastYearValue) &&
+                           parseInt(row.bulan) <= maxMonth && // Filter hanya sampai bulan berjalan
                            (selectedProvinsi === 'All' || row.provinsi === selectedProvinsi) &&
                            (selectedKabupaten === 'All' || row.kabupaten === selectedKabupaten) &&
                            (selectedProduk === 'All' || row.produk === selectedProduk);
@@ -287,6 +299,7 @@
                 return {
                     ...current,
                     ratio: current.pnb > 0 ? formatNumber(current.pnl/current.pnb) : "0,00",
+                    maxMonthName,
                     yoy: {
                         sAwal: getGrowth(current.sAwal, last.sAwal),
                         pnb: getGrowth(current.pnb, last.pnb),
@@ -298,14 +311,22 @@
 
             const chartData = useMemo(() => {
                 const months = {};
+                const monthNames = ["JAN", "FEB", "MAR", "APR", "MEI", "JUN", "JUL", "AGU", "SEP", "OKT", "NOV", "DES"];
+                
+                // Inisialisasi semua 12 bulan (Jan - Des) agar selalu tampil pada chart
+                for (let i = 1; i <= 12; i++) {
+                    months[i] = { b: i, name: monthNames[i-1], Penebusan: 0, Penyaluran: 0 };
+                }
+
+                // Mengisi data pada bulan yang sesuai dari data yang sudah difilter
                 filteredData.forEach(row => {
                     const b = parseInt(row.bulan);
                     if (b >= 1 && b <= 12) {
-                        if (!months[b]) months[b] = { b, name: ["JAN", "FEB", "MAR", "APR", "MEI", "JUN", "JUL", "AGU", "SEP", "OKT", "NOV", "DES"][b-1], Penebusan: 0, Penyaluran: 0 };
                         months[b].Penebusan += parseNum(row.penebusan);
                         months[b].Penyaluran += parseNum(row.penyaluran);
                     }
                 });
+
                 return Object.values(months).sort((a,b) => a.b - b.b);
             }, [filteredData]);
 
@@ -377,18 +398,13 @@
                 return <span className="text-[9px] md:text-[10px] font-bold text-label-dim w-5 text-center select-none">{index + 1}</span>;
             };
 
-            // ==========================================
-            // RENDER: HALAMAN LANDING PAGE (DIUBAH TAMPILANNYA)
-            // ==========================================
             if (isLanding) {
                 return (
                     <div className="flex h-screen w-full overflow-hidden bg-[#0a0c10] relative items-center justify-center">
-                        {/* Efek Latar Belakang Estetik */}
                         <div className="bg-glow bg-primary/10 w-[300px] h-[300px] md:w-[600px] md:h-[600px] top-[-20%] left-[-10%]"></div>
                         <div className="bg-glow bg-tertiary/10 w-[300px] h-[300px] md:w-[500px] md:h-[500px] bottom-[-20%] right-[-10%]" style={{animationDelay: '2s'}}></div>
                         
                         <div className="z-10 text-center px-6 max-w-5xl flex flex-col items-center">
-                            {/* Judul Utama bergaya Gemini (Lebih bersih, tidak semua kapital) */}
                             <h1 className="text-4xl md:text-6xl lg:text-7xl font-medium tracking-tight mb-6 leading-tight flex flex-col gap-1 md:gap-2">
                                 <span className="text-xs md:text-sm text-primary/80 font-medium tracking-[0.3em] uppercase mb-2">Database Analytics</span>
                                 <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-blue-300 via-primary to-secondary pb-1 md:pb-2">
@@ -402,7 +418,6 @@
                                 Sistem informasi dan analitik distribusi pupuk untuk memantau performa penebusan dan penyaluran di wilayah <strong className="font-medium text-on-surface/90">PT Pupuk Sriwidjaja Palembang</strong>.
                             </p>
 
-                            {/* Area Aksi: Loading atau Tombol Masuk */}
                             <div className="w-full max-w-sm mx-auto h-20 flex items-center justify-center">
                                 {isLoading ? (
                                     <div className="w-full space-y-3 animate-pulse-soft">
@@ -431,17 +446,12 @@
                 );
             }
 
-            // ==========================================
-            // RENDER: HALAMAN DASHBOARD UTAMA
-            // ==========================================
             return (
                 <div className="flex h-screen overflow-hidden relative">
-                    {/* MOBILE OVERLAY */}
                     {isMobileOpen && (
                         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[55] lg:hidden" onClick={() => setIsMobileOpen(false)} />
                     )}
 
-                    {/* ASIDE */}
                     <aside className={`fixed lg:static inset-y-0 left-0 z-[60] bg-[#11131a] flex flex-col py-6 px-4 shadow-2xl bezier-transition transform ${isMobileOpen ? 'translate-x-0 w-[260px]' : '-translate-x-full lg:translate-x-0'} ${isCollapsed ? 'lg:w-[80px]' : 'lg:w-[240px]'}`}>
                         <div className={`mb-10 flex items-center ${isCollapsed && !isMobileOpen ? 'justify-center' : 'px-2 gap-3'}`}>
                             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#85adff] to-[#6e9fff] flex-shrink-0 flex items-center justify-center shadow-lg shadow-primary/20">
@@ -482,7 +492,6 @@
                         </div>
                     </aside>
 
-                    {/* MAIN CONTENT */}
                     <main className="flex-1 flex flex-col h-full w-full min-w-0">
                         <header className="h-16 flex items-center px-4 lg:px-8 border-b border-white/5 bg-background/50 backdrop-blur-md sticky top-0 z-40">
                             <div className="flex items-center gap-4">
@@ -506,10 +515,10 @@
                             </section>
 
                             <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
-                                <KPICard label="Stok Awal" val={stats.sAwal} icon="inventory_2" iconColor="text-[#a8c7ff]" compareVal={stats.yoy.sAwal} format={formatNumber} />
-                                <KPICard label="Penebusan" val={stats.pnb} icon="payments" iconColor="text-indigo-400" compareVal={stats.yoy.pnb} format={formatNumber} />
-                                <KPICard label="Penyaluran" val={stats.pnl} icon="local_shipping" iconColor="text-secondary" compareVal={stats.yoy.pnl} format={formatNumber} />
-                                <KPICard label="Stok Akhir" val={stats.sAkhir} icon="warehouse" iconColor="text-tertiary" compareVal={stats.yoy.sAkhir} format={formatNumber} />
+                                <KPICard label="Stok Awal" val={stats.sAwal} icon="inventory_2" iconColor="text-[#a8c7ff]" compareVal={stats.yoy.sAwal} format={formatNumber} compareText={`vs thn lalu (s/d ${stats.maxMonthName})`} />
+                                <KPICard label="Penebusan" val={stats.pnb} icon="payments" iconColor="text-indigo-400" compareVal={stats.yoy.pnb} format={formatNumber} compareText={`vs thn lalu (s/d ${stats.maxMonthName})`} />
+                                <KPICard label="Penyaluran" val={stats.pnl} icon="local_shipping" iconColor="text-secondary" compareVal={stats.yoy.pnl} format={formatNumber} compareText={`vs thn lalu (s/d ${stats.maxMonthName})`} />
+                                <KPICard label="Stok Akhir" val={stats.sAkhir} icon="warehouse" iconColor="text-tertiary" compareVal={stats.yoy.sAkhir} format={formatNumber} compareText={`vs thn lalu (s/d ${stats.maxMonthName})`} />
                             </section>
 
                             <section className="grid grid-cols-12 gap-4 md:gap-8 mb-6 md:mb-8">
@@ -525,53 +534,46 @@
                                         </div>
                                     </div>
                                     <div className="flex-1 w-full h-[250px] md:h-[320px]">
-                                        {chartData.length > 0 ? (
-                                            <ResponsiveContainer width="100%" height="100%">
-                                                <ComposedChart data={chartData} onMouseMove={(s) => s.activeTooltipIndex !== undefined && setActiveIndex(s.activeTooltipIndex)} onMouseLeave={() => setActiveIndex(null)}>
-                                                    <defs>
-                                                        <linearGradient id="activeBarGrad" x1="0" y1="0" x2="0" y2="1">
-                                                            <stop offset="0%" stopColor="#fff" stopOpacity={0.3}/><stop offset="100%" stopColor="#fff" stopOpacity={0.1}/>
-                                                        </linearGradient>
-                                                        <linearGradient id="gradAll" x1="0" y1="0" x2="0" y2="1">
-                                                            <stop offset="0%" stopColor="#FFD700" stopOpacity={0.2}/><stop offset="100%" stopColor="#85adff" stopOpacity={0.1}/>
-                                                        </linearGradient>
-                                                        <linearGradient id="gradUrea" x1="0" y1="0" x2="0" y2="1">
-                                                            <stop offset="0%" stopColor="#FFD700" stopOpacity={0.25}/><stop offset="100%" stopColor="#FFD700" stopOpacity={0.05}/>
-                                                        </linearGradient>
-                                                        <linearGradient id="gradNpk" x1="0" y1="0" x2="0" y2="1">
-                                                            <stop offset="0%" stopColor="#85adff" stopOpacity={0.25}/><stop offset="100%" stopColor="#85adff" stopOpacity={0.05}/>
-                                                        </linearGradient>
-                                                    </defs>
-                                                    <CartesianGrid strokeDasharray="0" vertical={false} stroke="rgba(255,255,255,0.02)" />
-                                                    <XAxis 
-                                                        dataKey="name" 
-                                                        axisLine={false} 
-                                                        tickLine={false} 
-                                                        tick={{fontSize: 9, fill: '#666', fontWeight: 700}} 
-                                                        dy={10} 
-                                                        interval={isMobile ? 1 : 0}
-                                                    />
-                                                    <YAxis hide />
-                                                    <Tooltip cursor={false} content={<CustomTooltip format={formatNumber} />} />
-                                                    <Bar dataKey="Penyaluran" radius={[6, 6, 0, 0]} maxBarSize={35}>
-                                                        {chartData.map((e, i) => (
-                                                            <Cell 
-                                                                key={i} 
-                                                                fill={i === activeIndex ? "url(#activeBarGrad)" : currentBarGradient} 
-                                                                stroke={i === activeIndex ? "rgba(255,255,255,0.3)" : "transparent"} 
-                                                                className="bezier-transition" 
-                                                            />
-                                                        ))}
-                                                    </Bar>
-                                                    <Line type="monotone" dataKey="Penebusan" stroke="#69f6b8" strokeWidth={5} dot={false} activeDot={{ r: 4, fill: '#fff', stroke: '#69f6b8', strokeWidth: 2 }} style={{ filter: 'drop-shadow(0px 4px 8px rgba(105, 246, 184, 0.4))' }} connectNulls={true} />
-                                                </ComposedChart>
-                                            </ResponsiveContainer>
-                                        ) : (
-                                            <div className="h-full flex flex-col items-center justify-center opacity-40">
-                                                <span className="material-symbols-outlined text-4xl mb-2">bar_chart_off</span>
-                                                <p className="text-[10px] font-bold uppercase tracking-widest">Tidak ada data</p>
-                                            </div>
-                                        )}
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <ComposedChart data={chartData} onMouseMove={(s) => s.activeTooltipIndex !== undefined && setActiveIndex(s.activeTooltipIndex)} onMouseLeave={() => setActiveIndex(null)}>
+                                                <defs>
+                                                    <linearGradient id="activeBarGrad" x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="0%" stopColor="#fff" stopOpacity={0.3}/><stop offset="100%" stopColor="#fff" stopOpacity={0.1}/>
+                                                    </linearGradient>
+                                                    <linearGradient id="gradAll" x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="0%" stopColor="#FFD700" stopOpacity={0.2}/><stop offset="100%" stopColor="#85adff" stopOpacity={0.1}/>
+                                                    </linearGradient>
+                                                    <linearGradient id="gradUrea" x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="0%" stopColor="#FFD700" stopOpacity={0.25}/><stop offset="100%" stopColor="#FFD700" stopOpacity={0.05}/>
+                                                    </linearGradient>
+                                                    <linearGradient id="gradNpk" x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="0%" stopColor="#85adff" stopOpacity={0.25}/><stop offset="100%" stopColor="#85adff" stopOpacity={0.05}/>
+                                                    </linearGradient>
+                                                </defs>
+                                                <CartesianGrid strokeDasharray="0" vertical={false} stroke="rgba(255,255,255,0.02)" />
+                                                <XAxis 
+                                                    dataKey="name" 
+                                                    axisLine={false} 
+                                                    tickLine={false} 
+                                                    tick={{fontSize: 9, fill: '#666', fontWeight: 700}} 
+                                                    dy={10} 
+                                                    interval={isMobile ? 1 : 0}
+                                                />
+                                                <YAxis hide />
+                                                <Tooltip cursor={false} content={<CustomTooltip format={formatNumber} />} />
+                                                <Bar dataKey="Penyaluran" radius={[6, 6, 0, 0]} maxBarSize={35}>
+                                                    {chartData.map((e, i) => (
+                                                        <Cell 
+                                                            key={i} 
+                                                            fill={i === activeIndex ? "url(#activeBarGrad)" : currentBarGradient} 
+                                                            stroke={i === activeIndex ? "rgba(255,255,255,0.3)" : "transparent"} 
+                                                            className="bezier-transition" 
+                                                        />
+                                                    ))}
+                                                </Bar>
+                                                <Line type="monotone" dataKey="Penebusan" stroke="#69f6b8" strokeWidth={5} dot={false} activeDot={{ r: 4, fill: '#fff', stroke: '#69f6b8', strokeWidth: 2 }} style={{ filter: 'drop-shadow(0px 4px 8px rgba(105, 246, 184, 0.4))' }} connectNulls={true} />
+                                            </ComposedChart>
+                                        </ResponsiveContainer>
                                     </div>
                                 </div>
 
@@ -681,7 +683,7 @@
             </div>
         );
 
-        const KPICard = ({ label, val, icon, iconColor, compareVal, format }) => {
+        const KPICard = ({ label, val, icon, iconColor, compareVal, format, compareText }) => {
             const isNegative = compareVal < 0;
             const absVal = Math.abs(compareVal);
             const trendColor = isNegative ? 'text-error-container' : 'text-secondary';
@@ -710,7 +712,7 @@
                             <span className="material-symbols-outlined text-xs md:text-sm font-bold">{trendIcon}</span>
                             <span className="text-[10px] font-black">{isNegative ? '-' : '+'}{format(absVal)}%</span>
                         </div>
-                        <span className="text-[8px] md:text-[9px] font-medium text-on-surface-variant uppercase opacity-50 whitespace-nowrap">vs thn lalu</span>
+                        <span className="text-[8px] md:text-[9px] font-medium text-on-surface-variant uppercase opacity-50 whitespace-nowrap">{compareText || 'vs thn lalu'}</span>
                     </div>
                 </div>
             );
